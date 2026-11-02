@@ -1,5 +1,7 @@
 # Emergency Hub – Barangay Rizal
 
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/12877b64-5b48-4654-8ed0-701dd446b5cd" />
+
 A clean, empty system: **no sample data anywhere**. Everything residents see in the
 app is entered by the barangay in the admin console, and everything residents
 submit in the app shows up in the admin console.
