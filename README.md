@@ -1,10 +1,41 @@
 # Emergency Hub – Barangay Rizal
 
+The system must start with a clean, empty state: absolutely no sample data, dummy records, placeholder entries, mock incidents, or hardcoded demonstration content anywhere in the application.
+
+The Emergency Hub Barangay System (EHBR) must operate using a centralized, database-driven approach where the Barangay Admin Console (WAM) serves as the primary source of information for residents using the Mobile App Mode (MAM).
+
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/12877b64-5b48-4654-8ed0-701dd446b5cd" />
 
-A clean, empty system: **no sample data anywhere**. Everything residents see in the
-app is entered by the barangay in the admin console, and everything residents
-submit in the app shows up in the admin console.
+1. Admin-to-Resident Data Flow
+- All information displayed to residents must originate from the barangay's admin console and its connected database.
+- Announcements, emergency advisories, news articles, evacuation centers, emergency contacts, hazard information, safe zones, and other barangay-managed content must be created, managed, updated, or removed by authorized administrators.
+- Newly published information in the admin console should automatically become available in the resident application through the existing backend APIs.
+- Unpublished, archived, or deleted content must follow the appropriate visibility rules and must not appear as active information in the resident application.
+- Residents must never see fabricated or automatically populated content presented as official barangay information.
+2. Resident-to-Admin Data Flow
+- Every report, emergency request, SOS alert, and other resident-submitted information must be transmitted to the backend and reflected in the appropriate sections of the admin console.
+- Submitted reports must retain their relevant details, including resident information, incident category, description, attachments, timestamps, location coordinates, and submission status, where applicable.
+- Administrators must be able to review, validate, categorize, assign, update, and manage incoming submissions according to the system's existing functionality.
+- Any status updates or administrative responses must be synchronized back to the corresponding resident application.
+- Offline submissions must remain queued locally and synchronize with the backend when connectivity becomes available.
+3. Empty-State Handling
+- Every screen must handle an empty database gracefully.
+- When no announcements, reports, emergency contacts, news articles, evacuation centers, or other records exist, display a clean and informative empty state.
+- Empty states should explain why no information is currently available rather than displaying fabricated records.
+- Loading states, API errors, unavailable connections, and empty database responses must be handled separately.
+- Do not use hardcoded fallback records to make screens appear populated.
+4. Database and Backend Integrity
+- Use the existing backend, database, API endpoints, authentication, and authorization mechanisms.
+- Do not introduce unnecessary duplicate databases, disconnected local datasets, or alternative data sources.
+- Preserve the existing relationships between residents, administrators, reports, announcements, emergency records, and other entities.
+- Ensure that submitted information is stored persistently and retrieved from the appropriate database records.
+- Maintain proper access control so residents can only access information permitted by their roles, while administrators can manage barangay-wide records according to their permissions.
+5. Important Development Restrictions
+- Do not modify or break existing admin-side functionality while implementing resident-side improvements.
+- Do not replace working backend functionality with mock services or hardcoded responses.
+- Do not seed the database with sample residents, reports, announcements, contacts, or other demonstration records.
+- Do not remove existing features simply because their database tables are currently empty.
+- Preserve the existing project architecture and integrate improvements into the current implementation.
 
 ```
 ehbr/
