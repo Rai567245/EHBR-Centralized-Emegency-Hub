@@ -1,13 +1,16 @@
 # EHBR Daily Development Progress — 2026-11-04
 
 **Project:** Emergency Hub Barangay System (EHBR)
-**Contributor:** Vanrey G. Magalong
-**Development area:** MAM – Resident Mobile Application
-**Branch:** main
-**Commit / PR:** Not Provided
-**Overall status:** In Progress
 
----
+**Contributor:** Vanrey G. Magalong
+
+**Development area:** MAM – Resident Mobile Application
+
+**Branch:** main
+
+**Commit / PR:** Not Provided
+
+**Overall status:** In Progress
 
 ## 1. Daily Summary
 
@@ -24,8 +27,6 @@ Continue improving the resident mobile application by updating the incident repo
 
 **Overall outcome:**
 The resident reporting and profile interfaces received UI updates, while the shared header design was extended to other relevant screens for a more consistent application experience. Report submission, queue handling, report retrieval, and navigation behavior still require verification.
-
----
 
 ## 2. Screen / Frame Changes
 
@@ -96,9 +97,7 @@ The resident reporting and profile interfaces received UI updates, while the sha
 - **Actual result:** Header updates applied to relevant screens. Complete screen coverage and responsive behavior still require verification.
 - **Verification:** Tested
 - **Evidence:** Not Provided
-
----
-
+  
 ## 3. Feature and User-Flow Changes
 
 | Feature / Flow     | Change Made                                             | Expected Result                                                 | Actual Result                             | Status  |
@@ -108,8 +107,6 @@ The resident reporting and profile interfaces received UI updates, while the sha
 | Queued Reports     | Updated queued status presentation                      | Residents can distinguish queued reports from submitted reports | UI updated; synchronization unverified    | Updated |
 | My Reports         | Updated profile section                                 | Better organization of resident report records                  | UI updated; data retrieval unverified     | Updated |
 | Shared Header      | Applied Home page header design across relevant screens | Consistent application-wide header presentation                 | Updates applied; full coverage unverified | Updated |
-
----
 
 ## 4. Code Changes
 
@@ -139,8 +136,6 @@ The resident reporting and profile interfaces received UI updates, while the sha
 - **Configuration:** No changes reported.
 - **Impact on existing behavior:** The changes affect incident reporting, report status presentation, profile content, and shared screen headers. Existing submission, queue synchronization, report retrieval, and navigation behavior should be preserved and verified.
 
----
-
 ## 5. Backend, API, and Database Changes
 
 | Component                 | Change                      | Compatibility / Impact                                            | Verification   |
@@ -157,8 +152,6 @@ The resident reporting and profile interfaces received UI updates, while the sha
 - **Failure and retry behavior:** No changes reported.
 
 **Backend impact:** No backend, API, or database modifications were reported for this development session. The report submission and queued report interfaces should continue using the existing application logic and services unless separately modified.
-
----
 
 ## 6. UI/UX and Responsive Behavior
 
@@ -185,8 +178,6 @@ Not yet documented. A complete comparison against the relevant Figma frames is s
 - Confirm the Home page header design is consistently applied across relevant screens.
 - Check header spacing and content alignment on different screen sizes.
 - Confirm that header actions and navigation remain functional.
-
----
 
 ## 7. Testing and Verification
 
@@ -218,8 +209,6 @@ Not yet documented. A complete comparison against the relevant Figma frames is s
 **Regression impact:**
 The updated reporting and profile screens should be checked for regressions in report submission, queue synchronization, report retrieval, and navigation. Shared header changes should also be checked across all affected screens.
 
----
-
 ## 8. Git and Repository Activity
 
 - **Branch:** Not Provided
@@ -229,8 +218,6 @@ The updated reporting and profile screens should be checked for regressions in r
 - **Merge conflicts:** Not Reported
 - **Repository hygiene:** Ensure that no credentials, API keys, passwords, or environment secrets are included in committed files.
 
----
-
 ## 9. Evidence
 
 - **Before screenshot:** Not Available
@@ -238,8 +225,6 @@ The updated reporting and profile screens should be checked for regressions in r
 - **Figma frame:** Not Provided
 - **Test evidence:** Not Available
 - **Commit / PR:** Not Provided
-
----
 
 ## 10. Issues and Blockers
 
@@ -261,8 +246,6 @@ The updated reporting and profile screens should be checked for regressions in r
 - Check that existing header navigation and actions remain functional.
 - Verify consistent header spacing and alignment across affected screens.
 
----
-
 ## 11. Next Work Session
 
 - [x] Test the updated Create Report screen.
@@ -276,8 +259,6 @@ The updated reporting and profile screens should be checked for regressions in r
 
 **Priority:** High
 **Dependencies:** Updated screens and existing report services should be available in the current project build before verification.
-
----
 
 ## 12. End-of-Day Handoff
 
@@ -308,8 +289,6 @@ The updated reporting and profile screens should be checked for regressions in r
 
 **Next starting point:**
 Begin by testing `create_report_screen.dart`, especially the distinction between submitted and queued reports. Then verify `profile_screen.dart` and check the shared header design across the affected resident screens.
-
----
 
 ## Final Checklist
 
