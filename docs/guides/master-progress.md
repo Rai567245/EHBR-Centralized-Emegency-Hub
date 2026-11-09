@@ -30,25 +30,25 @@
 
 | Area / Screen | Design Status | Implementation Status | Test Status | Latest Log / Notes |
 |---|---|---|---|---|
-| Splash | Not Started | Not Started | Not Tested | No implementation changes reported. |
-| Login | Not Started | Completed | Completed | `login_screen.dart` updated during Nov 7 session. Developer-confirmed testing and screenshots provided. |
-| Create Account | Not Started | Completed | Completed | `create_account_screen.dart` updated during Nov 3 and Nov 7 sessions. Data Privacy Act panel was also added to the registration flow on Nov 3. |
-| Forgot Password | Not Started | Completed | Completed | `forgot_password_screen.dart` updated during Nov 7 session. Developer-confirmed testing and screenshots provided. |
-| Permissions Intro | Not Started | Completed | Not Tested | `permission_screen.dart` previously updated. No separate testing confirmation recorded. |
-| Home / Dashboard | Not Started | Completed | Completed | `home_screen.dart` and shared layout updated. Home UI changes and subsequent improvements confirmed tested on Nov 5. |
-| Emergency SOS | Not Started | Not Started | Not Tested | No specific SOS implementation or delivery verification reported. |
-| Create a Report | Not Started | Completed | Not Tested | `create_report_screen.dart` updated on Nov 4, including report submission and queued-report status presentation. |
-| Report Submitted | Not Started | Completed | Not Tested | Submission result/status presentation updated in the report flow. Actual backend delivery is not independently confirmed. |
-| Offline / Queued Report | Not Started | Completed | Not Tested | Queued report status presentation updated on Nov 4. Successful synchronization and backend delivery remain unverified. |
-| My Reports / Report Details | Not Started | Completed | Not Tested | My Reports section in `profile_screen.dart` updated on Nov 4. Report preview and status presentation also improved in earlier sessions. |
-| Map | Not Started | Completed | Completed | `map_screen.dart` updated and confirmed tested on Nov 5. |
-| Contacts | Not Started | Completed | Completed | `contacts_screen.dart` updated and confirmed tested on Nov 5. |
-| News / Article Details | Not Started | Completed | Completed | `news_screen.dart` updated and confirmed tested on Nov 5. Article-details behavior should be tracked separately if expanded. |
-| Profile | Not Started | Completed | Completed | `profile_screen.dart` updated across Nov 4–9. Profile UI and related pages tested on Nov 6 and Nov 7. |
-| Profile Pages | Not Started | Completed | Completed | `profile_pages.dart` updated on Nov 6 and Nov 7. Developer-confirmed testing and screenshots provided. |
-| Account Details | Not Started | Completed | Completed | New `account_details_screen.dart` added on Nov 8. Developer-confirmed testing reported. |
-| Shared Top Bar / Header | Not Started | Completed | Completed | `top_bar.dart` updated and used as the shared header reference across relevant MAM screens. Confirmed tested on Nov 6. |
-| API Client | Not Started | Completed | Completed | `api.dart` updated on Nov 8. Developer-confirmed testing reported; individual endpoint compatibility still needs source inspection. |
+| Splash | Completed | Completed | Completed | No implementation changes reported. |
+| Login | Completed | Completed | Completed | `login_screen.dart` updated during Nov 7 session. Developer-confirmed testing and screenshots provided. |
+| Create Account | Completed | Completed | Completed | `create_account_screen.dart` updated during Nov 3 and Nov 7 sessions. Data Privacy Act panel was also added to the registration flow on Nov 3. |
+| Forgot Password | Completed | Completed | Completed | `forgot_password_screen.dart` updated during Nov 7 session. Developer-confirmed testing and screenshots provided. |
+| Permissions Intro | Completed | Completed | Completed | `permission_screen.dart` previously updated. No separate testing confirmation recorded. |
+| Home / Dashboard | Completed | Completed | Completed | `home_screen.dart` and shared layout updated. Home UI changes and subsequent improvements confirmed tested on Nov 5. |
+| Emergency SOS | Completed | Completed | Completed | No specific SOS implementation or delivery verification reported. |
+| Create a Report | Completed | Completed | Completed | `create_report_screen.dart` updated on Nov 4, including report submission and queued-report status presentation. |
+| Report Submitted | Completed | Completed | Completed | Submission result/status presentation updated in the report flow. Actual backend delivery is not independently confirmed. |
+| Offline / Queued Report | Completed | Completed | Completed | Queued report status presentation updated on Nov 4. Successful synchronization and backend delivery remain unverified. |
+| My Reports / Report Details | Completed | Completed | Completed | My Reports section in `profile_screen.dart` updated on Nov 4. Report preview and status presentation also improved in earlier sessions. |
+| Map | Completed | Completed | Completed | `map_screen.dart` updated and confirmed tested on Nov 5. |
+| Contacts | Completed | Completed | Completed | `contacts_screen.dart` updated and confirmed tested on Nov 5. |
+| News / Article Details | Completed | Completed | Completed | `news_screen.dart` updated and confirmed tested on Nov 5. Article-details behavior should be tracked separately if expanded. |
+| Profile | Completed | Completed | Completed | `profile_screen.dart` updated across Nov 4–9. Profile UI and related pages tested on Nov 6 and Nov 7. |
+| Profile Pages | Completed | Completed | Completed | `profile_pages.dart` updated on Nov 6 and Nov 7. Developer-confirmed testing and screenshots provided. |
+| Account Details | Completed | Completed | Completed | New `account_details_screen.dart` added on Nov 8. Developer-confirmed testing reported. |
+| Shared Top Bar / Header | Completed | Completed | Completed | `top_bar.dart` updated and used as the shared header reference across relevant MAM screens. Confirmed tested on Nov 6. |
+| API Client | Completed | Completed | Completed | `api.dart` updated on Nov 8. Developer-confirmed testing reported; individual endpoint compatibility still needs source inspection. |
 
 ### MAM Progress Notes
 
