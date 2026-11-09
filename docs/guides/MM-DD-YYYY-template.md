@@ -1,13 +1,16 @@
 # EHBR Daily Development Progress — YYYY-MM-DD
 
 **Project:** Emergency Hub Barangay System (EHBR)  
-**Contributor:** [Name / GitHub username]  
-**Development area:** [MAM / WAM / Shared / Multiple]  
-**Branch:** `[branch-name]`  
-**Commit / PR:** [Link or hash]  
-**Overall status:** [In Progress / Completed / Blocked]
 
----
+**Contributor:** [Name / GitHub username]  
+
+**Development area:** [MAM / WAM / Shared / Multiple]  
+
+**Branch:** `[branch-name]`  
+
+**Commit / PR:** [Link or hash]  
+
+**Overall status:** [In Progress / Completed / Blocked]
 
 ## 1. Daily Summary
 
@@ -165,8 +168,6 @@ Do not include API keys, tokens, passwords, private resident data, or production
 **Not started:** [Deferred work]  
 **Known limitations:** [What is not implemented or not tested]  
 **Next starting point:** [Exact file, screen, feature, or issue to continue from]
-
----
 
 ## Final Checklist
 
