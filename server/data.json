@@ -1,0 +1,1825 @@
+{
+  "settings": {
+    "barangay": {
+      "name": "",
+      "city": "",
+      "region": "",
+      "hotline": ""
+    },
+    "mapCenter": {
+      "lat": 14.5995,
+      "lng": 120.9842,
+      "radiusKm": 0,
+      "boundary": []
+    },
+    "sos": {
+      "number": "911",
+      "holdToConfirm": true
+    },
+    "rules": {
+      "notifyOnVerify": true,
+      "autoEscalate": true,
+      "escalateMinutes": 5,
+      "smsFallback": false,
+      "allowAnonymous": true
+    },
+    "zones": [
+      "Zone 1",
+      "Zone 2",
+      "Zone 3",
+      "Zone 4",
+      "Zone 5"
+    ],
+    "contacts": [],
+    "responders": [],
+    "zoneInfo": {},
+    "teams": [],
+    "escalation": {
+      "targets": []
+    }
+  },
+  "users": [
+    {
+      "id": "32bc3d7e-bb85-4a5d-9c33-e065486b4a66",
+      "role": "admin",
+      "firstName": "Barangay",
+      "lastName": "Admin",
+      "contact": "admin",
+      "address": "",
+      "zone": "",
+      "createdAt": "2026-10-28T10:57:51.653Z",
+      "passwordHash": "df7b211481bb1a2d95d9cf8759cb234d:140fe2d12380f71654734859d0a097c55d369be1cbf5237c7d7deca5bf4843d2a04914b615c849e7e24efa352ef4407d1043bf128d2b64fc238252e9d64a8bc4"
+    },
+    {
+      "id": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "role": "resident",
+      "firstName": "Vanrey",
+      "lastName": "Magalong",
+      "contact": "09618411810",
+      "email": "ivanrenzmagalong@gmail.com",
+      "address": "6057 General Ricarte St. South Cembo, Taguig City",
+      "zone": "Zone 4",
+      "passwordHash": "d87f88f3f61435c87dc62fe73c42d4a7:b69c2ab2b2b35867e8c496bbc27381e1083bd1317f45274ab1ad085501be1af683d169ca248a7d6233ac7bcf4c633e59f8d84a2c92eaae8b77c70313c9c005e8",
+      "createdAt": "2026-11-02T16:09:03.591Z",
+      "notifReadAt": "2026-11-13T09:58:29.731Z",
+      "deviceTokens": []
+    },
+    {
+      "id": "36774bc7-3620-4322-98e7-617bc6eda78a",
+      "role": "resident",
+      "firstName": "Jude",
+      "lastName": "Velasco",
+      "contact": "09589122761",
+      "email": "judevelasco245@gmail.com",
+      "address": "6046 General Ricarte St. South Cembo, Taguig City",
+      "zone": "Zone 4",
+      "passwordHash": "45facfceab63b7c4a7269a883064907c:8aff53fa028d51b1c9ab97de677faaff4329deef47303f2faedd10b25efedf9692354c60bb03f448da9f37c1d7a2d9efc159de290c5cde12aeaa5a9fedb99c03",
+      "createdAt": "2026-11-02T16:24:23.165Z",
+      "notifReadAt": "2026-11-08T18:03:21.260Z",
+      "deviceTokens": []
+    },
+    {
+      "id": "e234c105-90f6-44c5-8308-cea16ad72eb1",
+      "role": "resident",
+      "firstName": "Edmyr",
+      "lastName": "Custodio",
+      "contact": "09062455466",
+      "email": "ecustodio.k12258045@umak.edu.ph",
+      "address": "BLOCK 151 LOT 10 TIFFANY ST. RIZAL, TAGUIG CITY",
+      "zone": "Zone 4",
+      "passwordHash": "95992dafc0859e5b6472ac73652fdd32:c52cc25ca6a9132281c8ca391701b79b7818d353a9ca4aa1eaae122b45e0dcab8add39d3b3698ec8118c99e40a130a4bee7c2282ab3d2f3c4b4ee14c3d4c59d5",
+      "createdAt": "2026-11-11T14:33:57.178Z",
+      "notifReadAt": "2026-11-11T14:41:12.439Z",
+      "deviceTokens": []
+    },
+    {
+      "id": "39be61cd-1e71-4213-9b7d-99dd1d2039ce",
+      "role": "resident",
+      "firstName": "Jade Daryl",
+      "lastName": "Cabales",
+      "contact": "09618411811",
+      "email": "jadedarylcabales567245@gmail.com",
+      "address": "BLOCK 151 LOT 10 TIFFANY ST. RIZAL, TAGUIG CITY",
+      "zone": "Zone 3",
+      "passwordHash": "98c7ab57a119cd8046d373efc07e8556:1ae16643544ec619e660b3ebfdd1940aa8e7e6ecc34a94f9190b27c4e7892ad54ca3134092dd74f487abef3746153b6e7bfd6ae5aa790908aa203a9994d26a3a",
+      "createdAt": "2026-11-11T15:29:23.667Z",
+      "notifReadAt": "2026-11-11T15:37:44.684Z",
+      "deviceTokens": []
+    }
+  ],
+  "reports": [
+    {
+      "id": "EH-0001",
+      "type": "Fire",
+      "kind": "incident",
+      "description": "A residential fire has broken out in a two-story house along Standard Street, close to the Barangay Rizal Covered Court. The fire is spreading rapidly to adjacent houses. Thick black smoke is visible, and residents are actively evacuating the immediate area. Emergency response and fire trucks are urgently needed.",
+      "urgency": "Critical",
+      "locationText": "",
+      "lat": 14.6438,
+      "lng": 120.9632,
+      "outside": false,
+      "anonymous": false,
+      "status": "RESOLVED",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "assignedTo": "BFP Taguig Fire Station, BDRRM Rescue Team",
+      "clientId": "8722f30b9f0a0baa6b445319c3d1a6a4",
+      "reportedAt": "2026-11-03T19:06:40.395Z",
+      "createdAt": "2026-11-03T19:06:40.460Z",
+      "updatedAt": "2026-11-08T17:56:22.847Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-03T19:06:40.395Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-03T19:07:39.367Z",
+          "text": "Verified by admin (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-03T19:24:25.793Z",
+          "text": "Assigned to BFP Taguig Fire Station, BDRRM Rescue Team"
+        },
+        {
+          "at": "2026-11-03T19:24:25.793Z",
+          "text": "Instructions: • Proceed immediately to Standard Street near Rizal Covered Court. The fire is spreading to adjacent residential structures. Prioritize evacuating trapped occupants from the neighboring two-story houses and establish a safe perimeter for incoming fire trucks."
+        },
+        {
+          "at": "2026-11-03T19:24:25.793Z",
+          "text": "Responders dispatched (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-03T19:24:45.029Z",
+          "text": "Assigned to BFP Taguig Fire Station, BDRRM Rescue Team"
+        },
+        {
+          "at": "2026-11-03T19:26:43.444Z",
+          "text": "Responders on site (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-03T19:27:48.186Z",
+          "text": "Resolved on site: The Bureau of Fire Protection (BFP) Taguig team, along with the BDRRM rescue crew, successfully declared fire out at 3:25 AM. All affected occupants were safely evacuated to the Rizal Covered Court, and no casualties were reported. Overhaul operations have been completed."
+        },
+        {
+          "at": "2026-11-03T19:27:48.186Z",
+          "text": "Marked resolved (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-08T17:53:35.640Z",
+          "text": "Reopened (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-08T17:53:43.670Z",
+          "text": "Verified by admin (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-08T17:56:22.845Z",
+          "text": "Resolved on site: Case already resolved - False alarm"
+        },
+        {
+          "at": "2026-11-08T17:56:22.845Z",
+          "text": "Marked resolved (Barangay Admin)"
+        }
+      ],
+      "onSiteAt": "2026-11-03T19:26:43.444Z",
+      "resolution": {
+        "outcome": "Resolved on site",
+        "note": "Case already resolved - False alarm",
+        "at": "2026-11-08T17:56:22.844Z",
+        "by": "Barangay Admin"
+      }
+    },
+    {
+      "id": "EH-0002",
+      "type": "Fallen electrical wire",
+      "kind": "hazard",
+      "description": "A live electrical wire has snapped and fallen onto the street near the intersection of Upper Bicutan Road and J.P. Rizal Street. The wire is sparking occasionally on the wet pavement. Passersby and vehicles are blocking the lane to avoid it, creating a dangerous hazard for motorists and pedestrians.",
+      "urgency": "High",
+      "locationText": "6057 General Ricarte St. South Cembo, Taguig City",
+      "lat": null,
+      "lng": null,
+      "outside": false,
+      "anonymous": false,
+      "status": "RESOLVED",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "assignedTo": "Meralco Emergency Crew, BDRRM Team",
+      "clientId": "0dc0f05e8d0feb97571264059c94819b",
+      "reportedAt": "2026-11-03T19:12:12.513Z",
+      "createdAt": "2026-11-03T19:12:12.522Z",
+      "updatedAt": "2026-11-03T19:18:54.406Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-03T19:12:12.513Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-03T19:12:47.113Z",
+          "text": "Verified by admin (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-03T19:15:31.602Z",
+          "text": "Assigned to Meralco Emergency Crew, BDRRM Team"
+        },
+        {
+          "at": "2026-11-03T19:15:31.602Z",
+          "text": "Instructions: • Coordinate with local traffic enforcers to cordon off the intersection of Upper Bicutan Road and J.P. Rizal Street immediately. Bring insulated safety equipment and clear pedestrians from the sparking hazard area until Meralco cuts the power line."
+        },
+        {
+          "at": "2026-11-03T19:15:31.602Z",
+          "text": "Responders dispatched (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-03T19:17:44.491Z",
+          "text": "Assigned to Meralco Emergency Crew, BDRRM Team"
+        },
+        {
+          "at": "2026-11-03T19:18:54.406Z",
+          "text": "Resolved on site: Meralco Emergency Crew arrived on site and successfully cut the power supply to the fallen live wire. The snapped cable has been safely removed from the street, and the area has been cleared of any electrical hazard. Traffic flow has now returned to normal."
+        },
+        {
+          "at": "2026-11-03T19:18:54.406Z",
+          "text": "Marked resolved (Barangay Admin)"
+        }
+      ],
+      "resolution": {
+        "outcome": "Resolved on site",
+        "note": "Meralco Emergency Crew arrived on site and successfully cut the power supply to the fallen live wire. The snapped cable has been safely removed from the street, and the area has been cleared of any electrical hazard. Traffic flow has now returned to normal.",
+        "at": "2026-11-03T19:18:54.406Z",
+        "by": "Barangay Admin"
+      }
+    },
+    {
+      "id": "EH-0003",
+      "type": "Road accident",
+      "kind": "incident",
+      "description": "A collision involving a motorcycle and a private sedan has occurred along the main road near the entry of Barangay Rizal. The motorcycle rider has sustained minor injuries and is sitting on the side of the curb. The vehicles are partially obstructing the northbound lane, causing a minor traffic buildup. Emergency medical personnel and traffic enforcers are needed.",
+      "urgency": "Critical",
+      "locationText": "",
+      "lat": 14.6438,
+      "lng": 120.9632,
+      "outside": false,
+      "anonymous": true,
+      "status": "VERIFIED",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "assignedTo": "",
+      "clientId": "afc15005f561a57507b1b03da3e3556f",
+      "reportedAt": "2026-11-03T19:39:10.855Z",
+      "createdAt": "2026-11-03T19:39:10.868Z",
+      "updatedAt": "2026-11-03T19:41:21.442Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-03T19:39:10.855Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-03T19:41:21.440Z",
+          "text": "Verified by admin (Barangay Admin)"
+        }
+      ]
+    },
+    {
+      "id": "EH-0004",
+      "type": "Blocked drainage",
+      "kind": "hazard",
+      "description": "The street gutter and drainage inlets along Standard Street are completely clogged with accumulated plastic trash and leaves. Because of this, even light rainfall is causing water to pond rapidly on the roadside instead of draining away. The stagnant water is beginning to emit a foul odor and is affecting pedestrians trying to use the sidewalk.",
+      "urgency": "Low",
+      "locationText": "Right outside the main gate of Rizal Elementary School",
+      "lat": null,
+      "lng": null,
+      "outside": false,
+      "anonymous": true,
+      "status": "RESOLVED",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "assignedTo": "Barangay Sanitation Team",
+      "clientId": "ec3fce083fde8683dadeaee7a6b24990",
+      "reportedAt": "2026-11-04T15:20:53.146Z",
+      "createdAt": "2026-11-04T15:20:53.170Z",
+      "updatedAt": "2026-11-05T08:06:57.788Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-04T15:20:53.146Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-04T15:21:41.759Z",
+          "text": "Verified by admin (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-05T08:02:59.459Z",
+          "text": "Assigned to Barangay Sanitation Team"
+        },
+        {
+          "at": "2026-11-05T08:02:59.460Z",
+          "text": "Instructions: Please clear the clogged street gutter and drainage inlets along Standard Street, directly outside the main gate of Rizal Elementary School. The blockage consists of accumulated plastic trash and leaves, which is causing stagnant, foul-smelling water to pool on the roadside and block the sidewalk fo"
+        },
+        {
+          "at": "2026-11-05T08:02:59.460Z",
+          "text": "Responders dispatched (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-05T08:04:10.993Z",
+          "text": "Responders on site (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-05T08:06:57.788Z",
+          "text": "Resolved on site: The local response team has successfully cleared the accumulated plastic trash, leaves, and debris from the street gutter and drainage inlets along Standard Street. The stagnant water has drained completely, the sidewalk is now clear and accessible for pedestrians, and the foul odor has been elimina"
+        },
+        {
+          "at": "2026-11-05T08:06:57.788Z",
+          "text": "Marked resolved (Barangay Admin)"
+        }
+      ],
+      "onSiteAt": "2026-11-05T08:04:10.993Z",
+      "resolution": {
+        "outcome": "Resolved on site",
+        "note": "The local response team has successfully cleared the accumulated plastic trash, leaves, and debris from the street gutter and drainage inlets along Standard Street. The stagnant water has drained completely, the sidewalk is now clear and accessible for pedestrians, and the foul odor has been elimina",
+        "at": "2026-11-05T08:06:57.788Z",
+        "by": "Barangay Admin"
+      }
+    },
+    {
+      "id": "EH-0005",
+      "type": "Fire",
+      "kind": "incident",
+      "description": "gsgsdsg",
+      "urgency": "Medium",
+      "locationText": "",
+      "lat": 14.561125918793874,
+      "lng": 121.05130526832019,
+      "outside": false,
+      "anonymous": false,
+      "status": "DISPATCHED",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "assignedTo": "BDRRM/Fire team",
+      "clientId": "e513b5ee5ef6793cc663b9172cef569d",
+      "reportedAt": "2026-11-04T18:31:42.504Z",
+      "createdAt": "2026-11-04T18:31:42.522Z",
+      "updatedAt": "2026-11-09T18:59:01.071Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-04T18:31:42.504Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-04T20:20:55.582Z",
+          "text": "Verified by admin (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-04T20:24:07.350Z",
+          "text": "Assigned to BDRRM/Fire team"
+        },
+        {
+          "at": "2026-11-04T20:24:07.350Z",
+          "text": "Instructions: Attention Residents,\n\nWe have received a report regarding a Fire Incident (Report #EH-0005) in our area. Emergency responders are currently being dispatched to the location to manage the situation. The reporter has been notified that help is on the way."
+        },
+        {
+          "at": "2026-11-04T20:24:07.350Z",
+          "text": "Responders dispatched (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-05T08:07:28.419Z",
+          "text": "Responders on site (Barangay Admin)"
+        }
+      ],
+      "onSiteAt": "2026-11-05T08:07:28.419Z"
+    },
+    {
+      "id": "EH-0006",
+      "type": "Fallen tree",
+      "kind": "hazard",
+      "description": "Fallen tree near Barangay Rizal Covered Court.",
+      "urgency": "High",
+      "locationText": "",
+      "lat": 14.561168281885601,
+      "lng": 121.05130321953531,
+      "outside": false,
+      "anonymous": false,
+      "status": "VERIFIED",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "assignedTo": "",
+      "clientId": "fd6d28083683e9a5b05a6602f512fdb9",
+      "reportedAt": "2026-11-05T15:21:51.843Z",
+      "createdAt": "2026-11-05T15:21:51.884Z",
+      "updatedAt": "2026-11-05T15:22:24.844Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-05T15:21:51.843Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-05T15:22:24.838Z",
+          "text": "Verified by admin (Barangay Admin)"
+        }
+      ]
+    },
+    {
+      "id": "EH-0007",
+      "type": "Blocked drainage",
+      "kind": "hazard",
+      "description": "asjdgashdgsahjdgashdgaj",
+      "urgency": "Critical",
+      "locationText": "6057 Ricarte St, South Cembo, Taguig City",
+      "lat": 14.561161056112768,
+      "lng": 121.05127883574278,
+      "outside": false,
+      "anonymous": true,
+      "status": "RESOLVED",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "assignedTo": "BDRRM",
+      "clientId": "71dcfcf6cc349f358acd010f6e1beb00",
+      "reportedAt": "2026-11-11T14:55:50.053Z",
+      "createdAt": "2026-11-11T14:55:50.073Z",
+      "updatedAt": "2026-11-11T14:59:17.396Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-11T14:55:50.053Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-11T14:56:35.928Z",
+          "text": "Verified by admin (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-11T14:57:45.668Z",
+          "text": "Assigned to BDRRM"
+        },
+        {
+          "at": "2026-11-11T14:57:45.668Z",
+          "text": "Instructions: SADSADASDAS"
+        },
+        {
+          "at": "2026-11-11T14:57:45.668Z",
+          "text": "Responders dispatched (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-11T14:58:11.390Z",
+          "text": "Responders on site (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-11T14:59:17.395Z",
+          "text": "Resolved on site: HAHSVAHSV"
+        },
+        {
+          "at": "2026-11-11T14:59:17.395Z",
+          "text": "Marked resolved (Barangay Admin)"
+        }
+      ],
+      "onSiteAt": "2026-11-11T14:58:11.390Z",
+      "resolution": {
+        "outcome": "Resolved on site",
+        "note": "HAHSVAHSV",
+        "at": "2026-11-11T14:59:17.395Z",
+        "by": "Barangay Admin"
+      }
+    },
+    {
+      "id": "EH-0008",
+      "type": "Medical emergency",
+      "kind": "incident",
+      "description": "asafsasfasf",
+      "urgency": "Critical",
+      "locationText": "",
+      "lat": 14.56116223708702,
+      "lng": 121.05129132628593,
+      "outside": false,
+      "anonymous": false,
+      "status": "RESOLVED",
+      "userId": "39be61cd-1e71-4213-9b7d-99dd1d2039ce",
+      "assignedTo": "BDRRM",
+      "clientId": "c997569b19e6d3ea51166fad1f5a1176",
+      "reportedAt": "2026-11-11T15:33:50.141Z",
+      "createdAt": "2026-11-11T15:33:50.152Z",
+      "updatedAt": "2026-11-11T15:37:25.672Z",
+      "photos": [],
+      "timeline": [
+        {
+          "at": "2026-11-11T15:33:50.141Z",
+          "text": "Reported by resident"
+        },
+        {
+          "at": "2026-11-11T15:34:56.178Z",
+          "text": "Verified by admin (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-11T15:35:45.503Z",
+          "text": "Assigned to BDRRM"
+        },
+        {
+          "at": "2026-11-11T15:35:45.503Z",
+          "text": "Instructions: SAHDFUDGHEQWYDY"
+        },
+        {
+          "at": "2026-11-11T15:35:45.503Z",
+          "text": "Responders dispatched (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-11T15:36:23.795Z",
+          "text": "Responders on site (Barangay Admin)"
+        },
+        {
+          "at": "2026-11-11T15:37:25.672Z",
+          "text": "Resolved on site: hwbqfhdvghqwv"
+        },
+        {
+          "at": "2026-11-11T15:37:25.672Z",
+          "text": "Marked resolved (Barangay Admin)"
+        }
+      ],
+      "onSiteAt": "2026-11-11T15:36:23.795Z",
+      "resolution": {
+        "outcome": "Resolved on site",
+        "note": "hwbqfhdvghqwv",
+        "at": "2026-11-11T15:37:25.672Z",
+        "by": "Barangay Admin"
+      }
+    }
+  ],
+  "announcements": [
+    {
+      "id": "22679227-9039-4a81-864c-37d34e283765",
+      "category": "advisory",
+      "title": "Typhoon Signal NO. 1",
+      "body": "Typhoon Signal No. 1 is currently in effect. Please prepare emergency kits, secure loose outdoor objects, and stay tuned to local news channels for further weather updates. Stay indoors and stay safe.",
+      "createdAt": "2026-11-02T15:36:10.090Z",
+      "author": "Barangay Admin"
+    },
+    {
+      "id": "5b26dfcc-c9f0-418a-a4ea-a6dc9636dc68",
+      "category": "alert",
+      "title": "Water Outage - Zone 4",
+      "body": "Please be advised that Zone 4 is experiencing a temporary water outage due to emergency pipe repairs. Normal supply is expected to restore by 8:00 PM. Please conserve stored water in the meantime. Stay safe!",
+      "createdAt": "2026-11-02T17:11:05.827Z",
+      "author": "Barangay Admin"
+    },
+    {
+      "id": "ec8acb8e-b516-4d47-86b5-e34d3a934299",
+      "category": "event",
+      "title": "Relief Distribution: Rizal Covered Court",
+      "body": "Relief goods distribution for affected families will begin today at 9:00 AM at the Rizal Covered Court. Please bring a valid ID or your family monitoring card. Kindly cooperate with barangay staff for an orderly lining.",
+      "createdAt": "2026-11-02T17:13:11.656Z",
+      "author": "Barangay Admin"
+    },
+    {
+      "id": "bec2f168-29c6-4aea-bb45-ad1cbf8689a2",
+      "category": "event",
+      "title": "Free Medical Mission",
+      "body": "Join our Free Medical Mission tomorrow, Nov 4, from 8AM to 12PM at the Rizal Covered Court. Free check-ups and basic medicines will be provided. Please bring a valid ID. First come, first served. Stay healthy, Ka-Barangay!",
+      "createdAt": "2026-11-02T17:15:10.670Z",
+      "author": "Barangay Admin"
+    },
+    {
+      "id": "7fde7697-89f6-430c-ba4f-a5ee76867dc8",
+      "category": "alert",
+      "title": "Scheduled Power Interruption",
+      "body": "Meralco alert: Temporary power interruption affecting Zones 2 and 3 on Nov 5 from 1:00 PM to 5:00 PM due to urgent pole maintenance. Please unplug sensitive appliances and prepare emergency lights. Thank you for your patience.",
+      "createdAt": "2026-11-02T17:15:39.361Z",
+      "author": "Barangay Admin"
+    }
+  ],
+  "centers": [
+    {
+      "id": "33ea347c-617c-4cae-b954-7792e3a51856",
+      "createdAt": "2026-11-02T15:39:18.205Z",
+      "name": "Barangay Rizal Covered Court",
+      "address": "Standard Street corner Upper Bicutan Road (near Barangay Rizal Hall)",
+      "capacity": 350,
+      "occupied": 75,
+      "status": "open",
+      "lat": 14.5312,
+      "lng": 121.0543
+    }
+  ],
+  "activity": [
+    {
+      "at": "2026-11-13T05:45:04.033Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-12T19:03:22.281Z",
+      "text": "Vanrey Magalong changed their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-12T18:48:18.486Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-12T18:40:53.260Z",
+      "text": "Vanrey Magalong updated their profile (zone)",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-12T18:36:06.349Z",
+      "text": "Vanrey Magalong updated their profile (zone)",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-12T18:35:45.056Z",
+      "text": "Vanrey Magalong updated their profile (zone)",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-12T16:54:12.099Z",
+      "text": "Barangay Admin exported access log for “Barangay records” (71 rows, csv)",
+      "kind": "export"
+    },
+    {
+      "at": "2026-11-12T16:54:11.201Z",
+      "text": "Barangay Admin exported access log for “Barangay records” (71 rows, csv)",
+      "kind": "export"
+    },
+    {
+      "at": "2026-11-11T18:17:08.719Z",
+      "text": "Barangay Admin cleared the blockage: Maya Street, Barangay Rizal",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T18:17:05.181Z",
+      "text": "Barangay Admin cleared the blockage: Spring Beauty Street, Barangay Rizal",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T15:52:06.055Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T15:50:50.848Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T15:37:25.672Z",
+      "text": "EH-0008 marked resolved",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T15:36:23.795Z",
+      "text": "EH-0008 responders on site",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T15:35:45.503Z",
+      "text": "EH-0008 responders dispatched",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T15:34:56.178Z",
+      "text": "EH-0008 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T15:33:50.152Z",
+      "text": "New critical report EH-0008: Medical emergency",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T15:29:23.754Z",
+      "text": "New resident registered: Jade Daryl Cabales",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T15:25:45.340Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T15:22:57.531Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T15:22:04.173Z",
+      "text": "Barangay Admin viewed the contact number of Vanrey Magalong",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-11-11T14:59:17.395Z",
+      "text": "EH-0007 marked resolved",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T14:58:11.390Z",
+      "text": "EH-0007 responders on site",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T14:57:45.668Z",
+      "text": "EH-0007 responders dispatched",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T14:56:35.928Z",
+      "text": "EH-0007 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T14:55:50.075Z",
+      "text": "New critical report EH-0007: Blocked drainage",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-11T14:33:57.236Z",
+      "text": "New resident registered: Edmyr Custodio",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T14:28:25.697Z",
+      "text": "Password reset requested by Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T14:27:10.654Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T14:25:31.283Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T14:25:14.347Z",
+      "text": "Barangay Admin viewed the contact number of Vanrey Magalong",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-11-11T14:02:52.737Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-11T14:00:56.074Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-10T19:41:51.578Z",
+      "text": "Barangay Admin updated settings",
+      "kind": "settings"
+    },
+    {
+      "at": "2026-11-10T19:41:47.828Z",
+      "text": "Barangay Admin updated settings",
+      "kind": "settings"
+    },
+    {
+      "at": "2026-11-10T19:41:44.308Z",
+      "text": "Barangay Admin updated settings",
+      "kind": "settings"
+    },
+    {
+      "at": "2026-11-10T19:41:41.361Z",
+      "text": "Barangay Admin updated settings",
+      "kind": "settings"
+    },
+    {
+      "at": "2026-11-10T19:41:28.721Z",
+      "text": "Barangay Admin updated settings",
+      "kind": "settings"
+    },
+    {
+      "at": "2026-11-10T19:29:37.705Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-10T19:28:53.706Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-09T19:09:40.823Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-09T19:08:42.713Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-09T18:25:53.254Z",
+      "text": "Barangay Admin updated the blockage: Roma Amor Street, Barangay Rizal",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-09T18:25:16.464Z",
+      "text": "Barangay Admin marked a road blockage: Spring Beauty Street, Barangay Rizal (Road works)",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-09T15:42:54.521Z",
+      "text": "Barangay Admin marked a road blockage: Maya Street, Barangay Rizal (Road works)",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-08T18:15:44.871Z",
+      "text": "Barangay Admin marked a road blockage: Roma Amor Street, Barangay Rizal (Road works)",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-08T18:13:23.699Z",
+      "text": "Barangay Admin cleared the blockage: Floraville Road (Near Barangay Rizal Health Center)",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-08T18:02:13.217Z",
+      "text": "Barangay Admin viewed the contact number of Jude Velasco",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-11-08T18:01:30.522Z",
+      "text": "Barangay Admin removed resident Rai Tech",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-08T17:56:22.845Z",
+      "text": "EH-0001 marked resolved",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-08T17:53:43.670Z",
+      "text": "EH-0001 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-08T17:53:35.640Z",
+      "text": "EH-0001 reopened",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-08T17:39:40.141Z",
+      "text": "Barangay Admin viewed the contact number of Vanrey Magalong",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-11-08T07:22:52.409Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-08T07:22:03.354Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-08T06:14:34.062Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-08T06:13:54.189Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:58:22.905Z",
+      "text": "Password reset requested by Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:50:49.458Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:49:51.368Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:46:17.733Z",
+      "text": "Barangay Admin issued a password reset code for Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:46:08.254Z",
+      "text": "Password reset requested by Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:45:26.636Z",
+      "text": "Barangay Admin issued a password reset code for Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:40:19.457Z",
+      "text": "Password reset requested by Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:01:53.259Z",
+      "text": "Vanrey Magalong reset their password",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T17:00:04.164Z",
+      "text": "Password reset code emailed to Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T16:08:50.697Z",
+      "text": "Barangay Admin issued a password reset code for Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T16:07:51.135Z",
+      "text": "Barangay Admin issued a password reset code for Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-07T16:07:15.466Z",
+      "text": "Password reset requested by Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-05T15:22:24.838Z",
+      "text": "EH-0006 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-05T15:21:51.888Z",
+      "text": "New high report EH-0006: Fallen tree",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-05T08:07:28.419Z",
+      "text": "EH-0005 responders on site",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-05T08:06:57.788Z",
+      "text": "EH-0004 marked resolved",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-05T08:04:10.993Z",
+      "text": "EH-0004 responders on site",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-05T08:02:59.460Z",
+      "text": "EH-0004 responders dispatched",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-04T20:24:07.350Z",
+      "text": "EH-0005 responders dispatched",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-04T20:20:55.582Z",
+      "text": "EH-0005 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-04T18:31:42.524Z",
+      "text": "New medium report EH-0005: Fire",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-04T15:21:41.759Z",
+      "text": "EH-0004 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-04T15:20:53.172Z",
+      "text": "New low report EH-0004: Blocked drainage",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-04T15:11:12.113Z",
+      "text": "Vanrey Magalong updated their recovery email",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-03T19:41:21.440Z",
+      "text": "EH-0003 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:39:10.869Z",
+      "text": "New critical report EH-0003: Road accident",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:27:48.186Z",
+      "text": "EH-0001 marked resolved",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:26:43.444Z",
+      "text": "EH-0001 responders on site",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:24:25.793Z",
+      "text": "EH-0001 responders dispatched",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:18:54.406Z",
+      "text": "EH-0002 marked resolved",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:15:31.603Z",
+      "text": "EH-0002 responders dispatched",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:12:47.113Z",
+      "text": "EH-0002 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:12:12.523Z",
+      "text": "New high report EH-0002: Fallen electrical wire",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:07:39.367Z",
+      "text": "EH-0001 verified by admin",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-03T19:06:40.465Z",
+      "text": "New critical report EH-0001: Fire",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-02T19:22:50.364Z",
+      "text": "New resident registered: Rai Tech",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T17:15:39.361Z",
+      "text": "Announcement sent: Scheduled Power Interruption",
+      "kind": "announcement"
+    },
+    {
+      "at": "2026-11-02T17:15:10.670Z",
+      "text": "Announcement sent: Free Medical Mission",
+      "kind": "announcement"
+    },
+    {
+      "at": "2026-11-02T17:13:11.656Z",
+      "text": "Announcement sent: Relief Distribution: Rizal Covered Court",
+      "kind": "announcement"
+    },
+    {
+      "at": "2026-11-02T17:11:05.827Z",
+      "text": "Announcement sent: Water Outage - Zone 4",
+      "kind": "announcement"
+    },
+    {
+      "at": "2026-11-02T16:43:10.049Z",
+      "text": "Barangay Admin removed resident ahdisahdi sdgsdgsdg",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T16:42:20.672Z",
+      "text": "New resident registered: ahdisahdi sdgsdgsdg",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T16:24:23.226Z",
+      "text": "New resident registered: Jude Velasco",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T16:16:05.010Z",
+      "text": "Barangay Admin exported access log for “Barangay records” (24 rows, csv)",
+      "kind": "export"
+    },
+    {
+      "at": "2026-11-02T16:10:43.239Z",
+      "text": "Barangay Admin issued a password reset code for Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T16:10:37.864Z",
+      "text": "Password reset requested by Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T16:09:03.642Z",
+      "text": "New resident registered: Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:54:59.719Z",
+      "text": "Barangay Admin removed resident Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:54:55.910Z",
+      "text": "Barangay Admin removed resident Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:54:53.456Z",
+      "text": "Barangay Admin removed resident Kalbong Bata",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:54:48.995Z",
+      "text": "Barangay Admin removed resident Dokgo San",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:54:07.759Z",
+      "text": "Barangay Admin issued a password reset code for Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:52:42.879Z",
+      "text": "Barangay Admin viewed the contact number of Rai Code",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-11-02T15:52:38.509Z",
+      "text": "Barangay Admin issued a password reset code for Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:52:17.450Z",
+      "text": "Barangay Admin issued a password reset code for Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:49:47.393Z",
+      "text": "Barangay Admin issued a password reset code for Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:49:25.002Z",
+      "text": "Password reset requested by Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T15:43:37.609Z",
+      "text": "Barangay Admin marked a road blockage: Floraville Road (Near Barangay Rizal Health Center) (Flood)",
+      "kind": "report"
+    },
+    {
+      "at": "2026-11-02T15:39:18.206Z",
+      "text": "Barangay Admin added evacuation center Barangay Rizal Covered Court",
+      "kind": "center"
+    },
+    {
+      "at": "2026-11-02T15:36:10.090Z",
+      "text": "Announcement sent: Typhoon Signal NO. 1",
+      "kind": "announcement"
+    },
+    {
+      "at": "2026-11-02T15:34:53.477Z",
+      "text": "New resident registered: Dokgo San",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-02T12:38:56.901Z",
+      "text": "New resident registered: Kalbong Bata",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-01T17:55:24.358Z",
+      "text": "Barangay Admin issued a password reset code for Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-11-01T17:55:12.468Z",
+      "text": "Barangay Admin viewed the contact number of Rai Code",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-11-01T17:55:10.845Z",
+      "text": "Barangay Admin viewed the contact number of Vanrey Magalong",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-10-29T14:04:06.814Z",
+      "text": "New resident registered: Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-10-29T11:35:28.457Z",
+      "text": "Password reset requested by Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-10-29T11:30:21.240Z",
+      "text": "New resident registered: Rai Code",
+      "kind": "user"
+    },
+    {
+      "at": "2026-10-28T16:26:46.698Z",
+      "text": "Barangay Admin removed resident Vanrey Magalong",
+      "kind": "user"
+    },
+    {
+      "at": "2026-10-28T16:26:32.514Z",
+      "text": "Barangay Admin viewed the contact number of Vanrey Magalong",
+      "kind": "audit"
+    },
+    {
+      "at": "2026-10-28T16:24:44.735Z",
+      "text": "New resident registered: Vanrey Magalong",
+      "kind": "user"
+    }
+  ],
+  "sessions": {
+    "555bfa48287cbafaa5433c742947d5dbc650f894eae2d6bc8950bc43793c5538": {
+      "userId": "32bc3d7e-bb85-4a5d-9c33-e065486b4a66",
+      "at": 1793720558894
+    },
+    "a164834a0c94c1292cf1662b71ab45c8dd1971636b2c042febd61d65fcbf5ffd": {
+      "userId": "32bc3d7e-bb85-4a5d-9c33-e065486b4a66",
+      "at": 1794167553628
+    },
+    "f727d15dd80fbdfa10b37ee91952363bdc456496faec7d1e7c4d0beff338382e": {
+      "userId": "32bc3d7e-bb85-4a5d-9c33-e065486b4a66",
+      "at": 1794338089483
+    },
+    "bd47a48e46d4d1ba5427e67f242663b29dcafcbe8cd61b6b829812bc1adabdcd": {
+      "userId": "32bc3d7e-bb85-4a5d-9c33-e065486b4a66",
+      "at": 1794338279145
+    },
+    "e7b635e1047867af920436b3e3e88b2d3bd04ea3197a66a4d2b56f8298f96361": {
+      "userId": "32bc3d7e-bb85-4a5d-9c33-e065486b4a66",
+      "at": 1794405302983
+    },
+    "ae98dffc53d1295c7b0cf8f0ae9beb6ff764f2edaae678417c9465185e61edb0": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794415359464
+    },
+    "c829710cabf24b49d96faad74c417ccd1cf27d13f95070afa25ab0b7e9aa20b1": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794507989378
+    },
+    "e140e160c7bd0981f436f4ff4012ec8ea2c579702f9fd25f39e690cc5e80bb25": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794508512306
+    },
+    "e732c071899c1d03b065f90b25508d2d26f2906554705d0231fef5ac773e91a2": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794509897070
+    },
+    "1fd922f90cff8040f472ccbc3a372c3afda85b907221a2ec4f86d951c51009bf": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794510234434
+    },
+    "c90e603801fffc036525dbf9c562385fbb672f522cce188dfe48e9282264e076": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794545283304
+    },
+    "7ec9ed37666875ee140ffe437ac5babddbd09ff812a1723e552fc27089be6761": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794545764162
+    },
+    "4b74b155246901b4a70013a20c5024f63eb18f8405e6d29c1f5c814865d4d131": {
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "at": 1794563907891
+    }
+  },
+  "notifications": [
+    {
+      "id": "7e1e0365-cfde-4a1f-846c-91bac3bbc2a4",
+      "userId": null,
+      "kind": "announcement",
+      "category": "advisory",
+      "title": "Typhoon Signal NO. 1",
+      "body": "Typhoon Signal No. 1 is currently in effect. Please prepare emergency kits, secure loose outdoor objects, and stay tuned to local news channels for further weather updates. Stay indoors and stay safe.",
+      "refId": "22679227-9039-4a81-864c-37d34e283765",
+      "createdAt": "2026-11-02T15:36:10.091Z"
+    },
+    {
+      "id": "886fb761-5a40-4a62-93ad-72f415816e8f",
+      "userId": null,
+      "kind": "alert",
+      "category": "alert",
+      "title": "Road blocked: Floraville Road (Near Barangay Rizal Health Center)",
+      "body": "Flood – Gutter-deep flooding. Small vehicles are advised to take alternate routes through internal barangay roads.",
+      "refId": "629f8b0d-4604-4a99-a721-5d5d94f4de7d",
+      "createdAt": "2026-11-02T15:43:37.609Z"
+    },
+    {
+      "id": "0772fc08-cc53-4ddb-a4d4-867f74eeeb10",
+      "userId": null,
+      "kind": "announcement",
+      "category": "alert",
+      "title": "Water Outage - Zone 4",
+      "body": "Please be advised that Zone 4 is experiencing a temporary water outage due to emergency pipe repairs. Normal supply is expected to restore by 8:00 PM. Please conserve stored water in the meantime. Stay safe!",
+      "refId": "5b26dfcc-c9f0-418a-a4ea-a6dc9636dc68",
+      "createdAt": "2026-11-02T17:11:05.827Z"
+    },
+    {
+      "id": "8bc0bb48-8e0a-42f8-b7e3-92cca75e7898",
+      "userId": null,
+      "kind": "announcement",
+      "category": "event",
+      "title": "Relief Distribution: Rizal Covered Court",
+      "body": "Relief goods distribution for affected families will begin today at 9:00 AM at the Rizal Covered Court. Please bring a valid ID or your family monitoring card. Kindly cooperate with barangay staff for an orderly lining.",
+      "refId": "ec8acb8e-b516-4d47-86b5-e34d3a934299",
+      "createdAt": "2026-11-02T17:13:11.656Z"
+    },
+    {
+      "id": "edaf2102-fe8d-4abd-b062-3ed099aae604",
+      "userId": null,
+      "kind": "announcement",
+      "category": "event",
+      "title": "Free Medical Mission",
+      "body": "Join our Free Medical Mission tomorrow, Nov 4, from 8AM to 12PM at the Rizal Covered Court. Free check-ups and basic medicines will be provided. Please bring a valid ID. First come, first served. Stay healthy, Ka-Barangay!",
+      "refId": "bec2f168-29c6-4aea-bb45-ad1cbf8689a2",
+      "createdAt": "2026-11-02T17:15:10.671Z"
+    },
+    {
+      "id": "d1ad5cb4-fbae-4ab8-adc3-a57bd66b46de",
+      "userId": null,
+      "kind": "announcement",
+      "category": "alert",
+      "title": "Scheduled Power Interruption",
+      "body": "Meralco alert: Temporary power interruption affecting Zones 2 and 3 on Nov 5 from 1:00 PM to 5:00 PM due to urgent pole maintenance. Please unplug sensitive appliances and prepare emergency lights. Thank you for your patience.",
+      "refId": "7fde7697-89f6-430c-ba4f-a5ee76867dc8",
+      "createdAt": "2026-11-02T17:15:39.361Z"
+    },
+    {
+      "id": "2f133ae9-c81f-44c4-a1ed-289cb17dec00",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0001 (Fire) was verified by the barangay.",
+      "refId": "EH-0001",
+      "createdAt": "2026-11-03T19:07:39.371Z"
+    },
+    {
+      "id": "d8cdec4f-7208-4490-af2a-d32f964a29c2",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Fire reported",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0001",
+      "createdAt": "2026-11-03T19:07:39.372Z"
+    },
+    {
+      "id": "ace6f908-01da-4ff6-bf91-783ed138179d",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0002 (Fallen electrical wire) was verified by the barangay.",
+      "refId": "EH-0002",
+      "createdAt": "2026-11-03T19:12:47.113Z"
+    },
+    {
+      "id": "4c349a3a-064b-43b0-94ce-b111810fed3d",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Fallen electrical wire reported – 6057 General Ricarte St. South Cembo, Taguig City",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0002",
+      "createdAt": "2026-11-03T19:12:47.113Z"
+    },
+    {
+      "id": "86bc00a0-76af-4cc1-8ca9-6a7ae952187f",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Responders on the way",
+      "body": "Help has been dispatched for your report EH-0002.",
+      "refId": "EH-0002",
+      "createdAt": "2026-11-03T19:15:31.604Z"
+    },
+    {
+      "id": "26e2a8fa-5cdd-4a14-ac31-7f0e96d6e567",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report resolved",
+      "body": "Your report EH-0002 (Fallen electrical wire) has been marked resolved.",
+      "refId": "EH-0002",
+      "createdAt": "2026-11-03T19:18:54.406Z"
+    },
+    {
+      "id": "b36e19af-d845-4b5f-b64f-0ce3e0afc676",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Responders on the way",
+      "body": "Help has been dispatched for your report EH-0001.",
+      "refId": "EH-0001",
+      "createdAt": "2026-11-03T19:24:25.793Z"
+    },
+    {
+      "id": "5b37a445-59c1-43df-b53a-22e24a515ec5",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report resolved",
+      "body": "Your report EH-0001 (Fire) has been marked resolved.",
+      "refId": "EH-0001",
+      "createdAt": "2026-11-03T19:27:48.191Z"
+    },
+    {
+      "id": "616d4787-c2cc-4cc5-bf40-3f4c920b881c",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0003 (Road accident) was verified by the barangay.",
+      "refId": "EH-0003",
+      "createdAt": "2026-11-03T19:41:21.441Z"
+    },
+    {
+      "id": "993c17bd-0ffa-4712-ad10-9f4bd98c102b",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Road accident reported",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0003",
+      "createdAt": "2026-11-03T19:41:21.442Z"
+    },
+    {
+      "id": "18b0a67c-baa2-491b-becd-bc762f8aded8",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0004 (Blocked drainage) was verified by the barangay.",
+      "refId": "EH-0004",
+      "createdAt": "2026-11-04T15:21:41.764Z"
+    },
+    {
+      "id": "fdb5463f-1bf4-4dc1-9960-13a31c006717",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Blocked drainage reported – Right outside the main gate of Rizal Elementary School",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0004",
+      "createdAt": "2026-11-04T15:21:41.764Z"
+    },
+    {
+      "id": "dd47e097-8e54-4fde-996a-5852e18885b7",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0005 (Fire) was verified by the barangay.",
+      "refId": "EH-0005",
+      "createdAt": "2026-11-04T20:20:55.583Z"
+    },
+    {
+      "id": "38d6711a-dbc6-4931-b9ee-43e697dca3c9",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Fire reported",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0005",
+      "createdAt": "2026-11-04T20:20:55.584Z"
+    },
+    {
+      "id": "f57649bb-6259-43b3-8727-a5c3124594c2",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Responders on the way",
+      "body": "Help has been dispatched for your report EH-0005.",
+      "refId": "EH-0005",
+      "createdAt": "2026-11-04T20:24:07.350Z"
+    },
+    {
+      "id": "87762f42-e5f6-4ba0-a1fc-78057fe04622",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Responders on the way",
+      "body": "Help has been dispatched for your report EH-0004.",
+      "refId": "EH-0004",
+      "createdAt": "2026-11-05T08:02:59.463Z"
+    },
+    {
+      "id": "82b12d19-5a0d-4c54-93e4-a195c111e683",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report resolved",
+      "body": "Your report EH-0004 (Blocked drainage) has been marked resolved.",
+      "refId": "EH-0004",
+      "createdAt": "2026-11-05T08:06:57.788Z"
+    },
+    {
+      "id": "fd4f41e2-e3a6-4dd3-9aff-70838a20561c",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0006 (Fallen tree) was verified by the barangay.",
+      "refId": "EH-0006",
+      "createdAt": "2026-11-05T15:22:24.840Z"
+    },
+    {
+      "id": "91ab8441-5a7e-45d5-8bb3-1d54d145f944",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Fallen tree reported",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0006",
+      "createdAt": "2026-11-05T15:22:24.844Z"
+    },
+    {
+      "id": "a08cb5df-3a6c-4da9-9b85-fcf75948514c",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-07T17:01:53.259Z"
+    },
+    {
+      "id": "89a2c784-57ee-47b8-802d-deb6bf5c773f",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-07T17:50:49.457Z"
+    },
+    {
+      "id": "e8091e39-b92e-461a-9fb1-7986cc7a77b2",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-08T06:14:34.062Z"
+    },
+    {
+      "id": "26ba8ea8-580e-45c9-8aed-d34a080d9cf7",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-08T07:22:52.409Z"
+    },
+    {
+      "id": "5d4132ab-209c-4c21-ace2-a2c1a0c8f093",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0001 (Fire) was verified by the barangay.",
+      "refId": "EH-0001",
+      "createdAt": "2026-11-08T17:53:43.673Z"
+    },
+    {
+      "id": "f338442a-77d1-42e0-9643-5c24bd74caca",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Fire reported",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0001",
+      "createdAt": "2026-11-08T17:53:43.673Z"
+    },
+    {
+      "id": "e11dd532-856a-401d-a5d5-8db21ed055ac",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report resolved",
+      "body": "Your report EH-0001 (Fire) has been marked resolved.",
+      "refId": "EH-0001",
+      "createdAt": "2026-11-08T17:56:22.847Z"
+    },
+    {
+      "id": "4e60c124-ddb7-40e3-b5ef-43498bb247bd",
+      "userId": null,
+      "kind": "alert",
+      "category": "alert",
+      "title": "Road blocked: Roma Amor Street, Barangay Rizal",
+      "body": "Road works",
+      "refId": "eeeef23e-bd0a-4377-b812-2fbf1ff33144",
+      "createdAt": "2026-11-08T18:15:44.871Z"
+    },
+    {
+      "id": "1a88492d-0d82-4fc2-9b5d-fe8a8a0be8cc",
+      "userId": null,
+      "kind": "alert",
+      "category": "alert",
+      "title": "Road blocked: Maya Street, Barangay Rizal",
+      "body": "Road works",
+      "refId": "7e2dd8c1-b54e-498e-84f7-654c5516efaf",
+      "createdAt": "2026-11-09T15:42:54.524Z"
+    },
+    {
+      "id": "cccd736d-b2f2-43b9-b91d-1ab21e4e7b20",
+      "userId": null,
+      "kind": "alert",
+      "category": "alert",
+      "title": "Road blocked: Spring Beauty Street, Barangay Rizal",
+      "body": "Road works",
+      "refId": "ecca13b5-13b3-41ce-a7f3-68c3b221888c",
+      "createdAt": "2026-11-09T18:25:16.465Z"
+    },
+    {
+      "id": "ff370617-6de2-461a-9813-d617e8ab8e25",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-09T19:09:40.823Z"
+    },
+    {
+      "id": "c4e1d8bd-b6b5-47fe-b65e-088ab1741a1a",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-10T19:29:37.704Z"
+    },
+    {
+      "id": "f37ebf7f-83ab-4d2b-af0e-22e9d5f758a0",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-11T14:02:52.737Z"
+    },
+    {
+      "id": "0746aff7-82b7-403f-b764-acb7b5cd4634",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-11T14:27:10.654Z"
+    },
+    {
+      "id": "a2fa565b-98e3-47ee-ac40-b0432d641826",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0007 (Blocked drainage) was verified by the barangay.",
+      "refId": "EH-0007",
+      "createdAt": "2026-11-11T14:56:35.928Z"
+    },
+    {
+      "id": "3dd4f98a-8d0a-44b1-8b60-45452b2a92fa",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Blocked drainage reported – 6057 Ricarte St, South Cembo, Taguig City",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0007",
+      "createdAt": "2026-11-11T14:56:35.929Z"
+    },
+    {
+      "id": "41ff07d3-4a60-4a84-9ec5-3c5700014dd9",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Responders on the way",
+      "body": "Help has been dispatched for your report EH-0007.",
+      "refId": "EH-0007",
+      "createdAt": "2026-11-11T14:57:45.668Z"
+    },
+    {
+      "id": "ac43fb3b-53a0-4e78-8d7f-f202e49a1e2a",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "report",
+      "category": "",
+      "title": "Report resolved",
+      "body": "Your report EH-0007 (Blocked drainage) has been marked resolved.",
+      "refId": "EH-0007",
+      "createdAt": "2026-11-11T14:59:17.396Z"
+    },
+    {
+      "id": "47c47760-25ca-4afb-913d-6cbb3a873332",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-11T15:25:45.340Z"
+    },
+    {
+      "id": "bbf0156c-f886-42d5-9a4c-77c9065794a9",
+      "userId": "39be61cd-1e71-4213-9b7d-99dd1d2039ce",
+      "kind": "report",
+      "category": "",
+      "title": "Report verified",
+      "body": "Your report EH-0008 (Medical emergency) was verified by the barangay.",
+      "refId": "EH-0008",
+      "createdAt": "2026-11-11T15:34:56.178Z"
+    },
+    {
+      "id": "d8c2cd8e-9cdd-485c-aca3-a6bee851afbd",
+      "userId": null,
+      "kind": "alert",
+      "category": "",
+      "title": "Medical emergency reported",
+      "body": "Verified by the barangay. Stay clear of the area and follow official advisories.",
+      "refId": "EH-0008",
+      "createdAt": "2026-11-11T15:34:56.179Z"
+    },
+    {
+      "id": "9dc1c029-0b84-4265-98c8-0fc7ad857ed9",
+      "userId": "39be61cd-1e71-4213-9b7d-99dd1d2039ce",
+      "kind": "report",
+      "category": "",
+      "title": "Responders on the way",
+      "body": "Help has been dispatched for your report EH-0008.",
+      "refId": "EH-0008",
+      "createdAt": "2026-11-11T15:35:45.503Z"
+    },
+    {
+      "id": "56d42e4e-ff60-4970-b89f-038a615ef1ad",
+      "userId": "39be61cd-1e71-4213-9b7d-99dd1d2039ce",
+      "kind": "report",
+      "category": "",
+      "title": "Report resolved",
+      "body": "Your report EH-0008 (Medical emergency) has been marked resolved.",
+      "refId": "EH-0008",
+      "createdAt": "2026-11-11T15:37:25.672Z"
+    },
+    {
+      "id": "ed140771-3a20-4ef2-ba90-8e020328ceaa",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-11T15:52:06.054Z"
+    },
+    {
+      "id": "e316e092-9f11-44b9-8763-91af32be22cf",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "kind": "security",
+      "category": "",
+      "title": "Your password was changed",
+      "body": "If this was not you, tell the barangay office right away.",
+      "refId": "",
+      "createdAt": "2026-11-12T19:03:22.282Z"
+    }
+  ],
+  "resets": [
+    {
+      "id": "34884dab-8188-46ea-94d5-31e69ebb4a48",
+      "userId": "88e19bf1-fe85-48fd-8377-53c36f928550",
+      "requestedAt": "2026-11-12T18:48:18.437Z",
+      "status": "issued",
+      "salt": "c18f073e96ef6c41",
+      "codeHash": "4cc5e22d212a63616a0712cd509ecbed294db9b49894b00e03003f79f6772874",
+      "expiresAt": "2026-11-13T06:00:03.968Z",
+      "attempts": 1,
+      "via": "email"
+    }
+  ],
+  "blockages": [
+    {
+      "id": "eeeef23e-bd0a-4377-b812-2fbf1ff33144",
+      "title": "Roma Amor Street, Barangay Rizal",
+      "reason": "Road works",
+      "details": "",
+      "lat": 14.537537086363846,
+      "lng": 121.06199466774346,
+      "until": "2026-11-14T22:00:00.000Z",
+      "createdAt": "2026-11-08T18:15:44.870Z",
+      "createdBy": "Barangay Admin"
+    }
+  ],
+  "counters": {
+    "report": 8
+  }
+}
