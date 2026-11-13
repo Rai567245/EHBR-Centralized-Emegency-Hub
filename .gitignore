@@ -14,6 +14,11 @@ secrets.json
 credentials.json
 service-account*.json
 firebase-service-account.json
+*-adminsdk-*.json
+
+# Firebase / Google config (remove these two lines if teammates need to commit them)
+google-services.json
+GoogleService-Info.plist
 
 # Local backend data and user uploads
 server/data.json
@@ -30,9 +35,23 @@ app/.dart_tool/
 app/build/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
+app/.packages
+app/.pub-cache/
+app/.pub/
+
+# Android generated files
+app/android/local.properties
+app/android/.gradle/
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
 
 # Local IDE and OS files
 .vscode/
 .idea/
+*.iml
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
