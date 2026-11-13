@@ -1,9 +1,8 @@
-# Emergency Hub -- Barangay Rizal (EHBR)
-
-## Installation and Local Development Setup Guide
+# Installation and Local Development Setup Guide
 
 **Repository:**
-https://github.com/Rai567245/EHBR-Emegency-Hub-Barangay-Rizal\
+https://github.com/Rai567245/EHBR-Centralized-Emegency-Hub/tree/main
+
 **Workflow:** GitHub website for repository management; VS Code terminal
 for local setup and development.
 
@@ -14,24 +13,12 @@ for local setup and development.
 
 ## 1. System overview
 
-  -----------------------------------------------------------------------
-  Component               Purpose                 Technology described in
-                                                  supplied notes
-  ----------------------- ----------------------- -----------------------
-  MAM                     Resident mobile         Flutter
-                          application             
-
-  WAM                     Barangay admin console  Plain HTML, CSS,
-                                                  JavaScript served by
-                                                  server
-
-  Backend                 API and application     Node.js
-                          services                
-
-  Storage                 Application data        `server/data.json` by
-                                                  default; PostgreSQL
-                                                  when configured
-  -----------------------------------------------------------------------
+| Component   | Purpose                      | Technology described in supplied notes                    |
+| ----------- | ---------------------------- | --------------------------------------------------------- |
+| **MAM**     | Resident mobile application  | Flutter                                                   |
+| **WAM**     | Barangay admin console       | Plain HTML, CSS, and JavaScript served by the server      |
+| **Backend** | API and application services | Node.js                                                   |
+| **Storage** | Application data             | `server/data.json` by default; PostgreSQL when configured |
 
 The backend is the central source of data. Admin-managed information
 should flow to residents through backend APIs. Resident reports should
@@ -145,29 +132,14 @@ sensitive application data; never upload it to GitHub.
 
 After signing in to WAM, configure the sections that actually exist:
 
-  -----------------------------------------------------------------------
-  Admin section           Configure               Resident-side use
-  ----------------------- ----------------------- -----------------------
-  Barangay profile        Official name,          App identity and
-                          locality, hotline, map  contacts
-                          center                  
-
-  SOS settings            Approved dial number    SOS action
-                          and behavior            
-
-  Emergency contacts      Verified police, fire,  Contacts and quick
-                          medical, utility        actions
-                          contacts                
-
-  Zones / Puroks          Actual zones            Registration and
-                                                  records
-
-  Evacuation centers      Official name, status,  Home and map
-                          capacity, coordinates   
-
-  Announcements           Approved advisories and News and home feed
-                          notices                 
-  -----------------------------------------------------------------------
+| Admin section          | Configure                                            | Resident-side use          |
+| ---------------------- | ---------------------------------------------------- | -------------------------- |
+| **Barangay profile**   | Official name, locality, hotline, map center         | App identity and contacts  |
+| **SOS settings**       | Approved dial number and behavior                    | SOS action                 |
+| **Emergency contacts** | Verified police, fire, medical, and utility contacts | Contacts and quick actions |
+| **Zones / Puroks**     | Actual zones                                         | Registration and records   |
+| **Evacuation centers** | Official name, status, capacity, coordinates         | Home and map               |
+| **Announcements**      | Approved advisories and notices                      | News and home feed         |
 
 Do not create invented records to make the app look populated. Empty
 sections must display appropriate empty states.
