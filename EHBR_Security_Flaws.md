@@ -12,8 +12,6 @@ Based on a read-only review of `EHBR-Centralized-Emegency-Hub-main.zip` (13–15
 
 **Decision recorded:** password reset codes stay at 6 digits. The fixes in SEC-11 rely on stricter limits instead of longer codes.
 
----
-
 ## Progress Tracker
 
 Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual run. State as of the review: nothing below has been fixed yet, and the protections listed under "Already implemented" were found in the code. Update the counter as you go.
@@ -98,8 +96,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - [ ] SEC-44 App backups and code protection (verify)
 - [ ] SEC-45 Errors are silently ignored
 - [ ] SEC-46 Third-party services see resident location
-
----
 
 ## A. Critical (before any real resident uses it)
 
@@ -210,8 +206,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - **Fix:** Notify residents when their password or contact number changes, when a reset is requested, and when a new device signs in.
 - **Done when:** Each of those events creates a notification.
 
----
-
 ## C. Data protection and privacy
 
 ### SEC-17 · P1 · Privacy notice is an unfinished draft and consent is not recorded
@@ -267,8 +261,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - **Fix:** Keep push text generic and show details only after the app is opened.
 - **Done when:** No notification shows an address or report detail.
 
----
-
 ## D. Logging, monitoring and response
 
 ### SEC-25 · P1 · The audit log is not reliable
@@ -292,8 +284,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - **Status:** Recommended
 - **Fix:** A short written runbook: who is told, how sessions are revoked, how data exposure is assessed, and when the National Privacy Commission needs notice. Have the barangay's privacy officer review it; this is not legal advice.
 - **Done when:** The plan exists and has been rehearsed once.
-
----
 
 ## E. Server and transport hardening
 
@@ -342,8 +332,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - **Fix:** Document single-instance use or move this state into the database.
 - **Done when:** Deployment notes say which, or the state is shared.
 
----
-
 ## F. Application logic
 
 ### SEC-37 · P2 · Any report status can become any other
@@ -373,8 +361,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - **Where:** `app/lib/screens/report_result_views.dart` (`_progress[report.status] ?? 1`)
 - **Fix:** Show an explicit rejected state with the reason.
 - **Done when:** A REJECTED report is never shown as received.
-
----
 
 ## G. Mobile app
 
@@ -407,8 +393,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - **Fix:** Use a barangay-approved tile provider and describe these services in the privacy notice.
 - **Done when:** The notice names the services that receive location data.
 
----
-
 ## H. Process and supply chain
 
 ### SEC-47 · P2 · Dependencies and builds are not checked
@@ -438,8 +422,6 @@ Tick a box (`- [x]`) when a fix is built **and** checked by a test or a manual r
 - **Status:** Confirmed limitation of this review
 - **Fix:** Before go-live, run the app, admin console and server against each item here, and have an independent penetration test done on the deployed system.
 - **Done when:** Every "Verify" item is resolved and a test report exists.
-
----
 
 ## What is already in place
 
