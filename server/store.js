@@ -106,19 +106,19 @@ function createStore(url, { ssl = process.env.DATABASE_SSL } = {}) {
     }
   }
 
-  function run() {
-    if (running) { again = true; return running; }
-    running = flushNow()
-      .catch((e) => console.error('[db] SAVE FAILED – will retry on the next change:', e.message))
-      .finally(() => {
-        running = null;
-        if (again) { again = false; schedule(); }
-      });
-    return running;
-  }
-  function schedule() {
-    if (timer) return;
-    timer = setTimeout(() => { timer = null; run(); }, 25);
+  // Phase 1 (SEC-06): Force synchronous durability. save() now returns a Promise
+  // that resolves only after PostgreSQL COMMIT succeeds.
+  async function schedule() {
+    if (running) await running;
+    try {
+      running = flushNow();
+      await running;
+    } catch (e) {
+      console.error('[db] SAVE FAILED:', e.message);
+      throw e; // Throw so the API route can catch it and return a 503
+    } finally {
+      running = null;
+    }
   }
 
   return {
