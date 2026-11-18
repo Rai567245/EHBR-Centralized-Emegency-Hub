@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
@@ -16,6 +17,9 @@ class Session {
   static const _tokenKey = 'ehbr_token';
   static const _userKey = 'ehbr_user';
   static const _configKey = 'ehbr_config';
+
+  // Phase 3 (SEC-42): Initialize secure storage for the session token
+  static const _storage = FlutterSecureStorage();
 
   /// Fetches the barangay settings (name, SOS number, emergency contacts…).
   /// If the server can't be reached, the last saved copy is used instead.
@@ -40,7 +44,10 @@ class Session {
   /// saved to fall back on.
   static Future<bool> restore() async {
     final prefs = await SharedPreferences.getInstance();
-    final t = prefs.getString(_tokenKey);
+    
+    // Phase 3 (SEC-42): Read token from Android Keystore / iOS Keychain
+    final t = await _storage.read(key: _tokenKey);
+    
     if (t == null) return false;
     Api.token = t;
     try {
@@ -77,7 +84,9 @@ class Session {
     Api.token = response['token'] as String;
     if (remember) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, Api.token!);
+      
+      // Phase 3 (SEC-42): Write token securely instead of plain SharedPreferences
+      await _storage.write(key: _tokenKey, value: Api.token!);
       await prefs.setString(_userKey, jsonEncode(u.toJson()));
     }
   }
@@ -93,7 +102,9 @@ class Session {
     user = null;
     Api.token = null;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    
+    // Phase 3 (SEC-42): Delete token securely
+    await _storage.delete(key: _tokenKey);
     await prefs.remove(_userKey);
   }
 }
