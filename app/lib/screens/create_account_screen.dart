@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
 import '../services/api.dart';
 import '../services/session.dart';
 import '../theme.dart';
@@ -189,6 +189,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         'address': _address.text.trim(),
         'zone': _zoneValue,
         'password': _password.text,
+        // Phase 3 (SEC-17): Send placeholder consent proof for now
+        'consentVersion': '1.0-draft',
+        'consentAt': DateTime.now().toUtc().toIso8601String(),
       });
 
       await Session.signIn(out);
@@ -271,16 +274,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  Widget _biodata() {
+Widget _biodata() {
     return Form(
       key: _form,
+      // NEW: This forces the red error indicators to update in real-time as the user types
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
+             Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -290,8 +295,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       style: _inputStyle,
                       cursorColor: _ehbrRed,
                       textCapitalization: TextCapitalization.words,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z\s\-\.]')),
+                      ],
                       decoration: _fieldDeco(hint: 'E.g John'),
-                      validator: (v) => _required(v, 'first name'),
+                      // Smart real-time indicator for First Name
+                      validator: (v) {
+                        final text = (v ?? '').trim();
+                        if (text.isEmpty) return 'Enter first name';
+                        if (text.length < 2) return 'Name is too short';
+                        if (!RegExp(r'^[A-Za-z\s\-\.]+$').hasMatch(text)) return 'Letters and spaces only';
+                        return null;
+                      },
                     ),
                   ],
                 ),
@@ -307,8 +322,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       style: _inputStyle,
                       cursorColor: _ehbrRed,
                       textCapitalization: TextCapitalization.words,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z\s\-\.]')),
+                      ],
                       decoration: _fieldDeco(hint: 'E.g Appleseed'),
-                      validator: (v) => _required(v, 'last name'),
+                      // Smart real-time indicator for Last Name
+                      validator: (v) {
+                        final text = (v ?? '').trim();
+                        if (text.isEmpty) return 'Enter last name';
+                        if (text.length < 2) return 'Name is too short';
+                        if (!RegExp(r'^[A-Za-z\s\-\.]+$').hasMatch(text)) return 'Letters and spaces only';
+                        return null;
+                      },
                     ),
                   ],
                 ),
@@ -322,13 +347,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             keyboardType: TextInputType.phone,
             style: _inputStyle,
             cursorColor: _ehbrRed,
+            // Only allow numbers and limit to exactly 11 digits
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(11),
+            ],
             decoration: _fieldDeco(
               hint: 'Enter your contact number',
               icon: Icons.phone_outlined,
             ),
-            validator: (v) => (v == null || v.trim().length < 7)
-                ? 'Enter a valid contact number'
-                : null,
+            // Show red error text immediately if it doesn't match the format when they press continue
+           // Smart real-time indicator
+            validator: (v) {
+              final text = v ?? '';
+              if (text.isEmpty) return 'Enter your contact number';
+              if (!text.startsWith('09')) return 'Must start with 09 (e.g., 0912...)';
+              if (text.length < 11) return 'Must be exactly 11 digits';
+              return null;
+            },
           ),
           const SizedBox(height: 16),
           const _Label('Email (optional – to reset a forgotten password)'),
