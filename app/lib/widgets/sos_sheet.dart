@@ -1,11 +1,12 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../location.dart';
 import '../services/session.dart';
+import '../services/api.dart';
 import '../theme.dart';
 
 // Same neutral surface colours as the other restyled screens.
@@ -77,12 +78,27 @@ class _SosSheetState extends State<_SosSheet> with SingleTickerProviderStateMixi
     }
   }
 
+  // Phase 2 (SEC-01): Trigger the backend API before dialing
   void _connect() {
     _timer?.cancel();
     setState(() {
       _stage = _Stage.connecting;
       _left = 4;
     });
+    
+    // Send the SOS to the backend immediately
+    if (_where != null) {
+      try {
+        Api.submitSos({
+          'lat': _where!.lat,
+          'lng': _where!.lng,
+          'clientId': const Uuid().v4(),
+        });
+      } catch (_) {
+        // Silently fail if offline or server is unreachable; dialer still works
+      }
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return t.cancel();
       if (_left <= 1) {
@@ -98,7 +114,9 @@ class _SosSheetState extends State<_SosSheet> with SingleTickerProviderStateMixi
     bool ok = false;
     try {
       ok = await launchUrl(Uri(scheme: 'tel', path: number));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Failed to dial number: $e');
+    }
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop();
