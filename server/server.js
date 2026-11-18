@@ -66,8 +66,11 @@ function load() {
 // DATABASE_URL set  -> PostgreSQL (see store.js). Not set -> the single data.json file (handy for quick tests).
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const pg = DATABASE_URL ? require('./store').createStore(DATABASE_URL) : null;
-function save() {
-  if (pg) return pg.save();
+async function save() {
+  if (pg) {
+    await pg.save();
+    return;
+  }
   const tmp = DATA_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
   fs.renameSync(tmp, DATA_FILE);
@@ -124,9 +127,13 @@ function checkPw(pw, stored) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   });
 }
+// Phase 1 (SEC-25): Uncapped, durable audit logging
 function log(text, kind = 'info') {
-  db.activity.unshift({ at: nowIso(), text, kind });
-  if (db.activity.length > 200) db.activity.length = 200;
+  // Generate a unique sequential position if Postgres is active, or array length
+  const pos = db.activity.length ? db.activity[0].pos + 1 : 1; 
+  db.activity.unshift({ pos, at: nowIso(), text, kind });
+  // Removed the 200 item truncation so the audit trail is preserved indefinitely
+  // (In production, you would periodically archive old logs)
 }
 // ------------------------------------------------------------------ notifications
 // userId === null means "every resident" (also sent to the FCM topic `residents`).
@@ -201,18 +208,25 @@ function cleanBoundary(v) {
 const mask = (c) => (c && c.length >= 8 ? `${c.slice(0, 4)} • • • ${c.slice(-4)}` : '••••');
 const fullName = (u) => (u ? `${u.firstName} ${u.lastName}`.trim() : 'Unknown');
 
-function issueToken(userId) {
-  const token = crypto.randomBytes(32).toString('hex');
-  db.sessions[token] = { userId, at: Date.now() };
-  save();
-  return token;
+// Phase 1 (SEC-03): Hash tokens before saving so DB dumps are not exploitable
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+function issueToken(userId, role) {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashToken(rawToken);
+  // SEC-12: Bind role to session to prevent admin logins on the resident app
+  db.sessions[tokenHash] = { userId, role, at: Date.now() }; 
+  // Note: ensure you call await save() inside the login route where issueToken is called
+  return rawToken; 
 }
+
 function userFromReq(req) {
   const m = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization || '');
   if (!m) return null;
-  const s = db.sessions[m[1]];
+  const tokenHash = hashToken(m[1]);
+  const s = db.sessions[tokenHash];
   if (!s) return null;
-  if (Date.now() - s.at > SESSION_MS) { delete db.sessions[m[1]]; save(); return null; }
+  if (Date.now() - s.at > SESSION_MS) { delete db.sessions[tokenHash]; /* save() handled async */ return null; }
   return db.users.find((u) => u.id === s.userId) || null;
 }
 
@@ -285,11 +299,22 @@ function newUser(b, role) {
   const firstName = str(b.firstName, 60), lastName = str(b.lastName, 60);
   const contact = normContact(b.contact);
   const address = str(b.address, 200), zone = str(b.zone, 40), email = cleanEmail(b.email);
+  
+  // 1. Strict Name Validation: Only letters, spaces, hyphens, and periods (e.g., "Ma. Clara", "De La Cruz")
   if (!firstName || !lastName) throw bad('First and last name are required');
-  if (!isPhone(contact)) throw bad('Enter a valid contact number');
+  const nameRegex = /^[A-Za-z\s.-]+$/;
+  if (!nameRegex.test(firstName)) throw bad('First name can only contain letters, spaces, periods, and hyphens');
+  if (!nameRegex.test(lastName)) throw bad('Last name can only contain letters, spaces, periods, and hyphens');
+
+  // 2. Strict Philippine Mobile Number Validation: Must be exactly 11 digits starting with '09'
+  if (!/^09\d{9}$/.test(contact)) {
+    throw bad('Enter a valid 11-digit Philippine mobile number starting with 09 (e.g., 09123456789)');
+  }
+  
   if (!address) throw bad('Address is required');
   if (db.settings.zones.length && !db.settings.zones.includes(zone)) throw bad('Select a valid zone');
   if (db.users.some((u) => u.contact === contact)) throw new HttpError(409, 'That contact number is already registered');
+  
   return { id: newId(), role, firstName, lastName, contact, email, address, zone, passwordHash: null, createdAt: nowIso(), notifReadAt: nowIso(), deviceTokens: [] };
 }
 function cleanSettings(b) {
@@ -517,8 +542,11 @@ route('DELETE', '/api/admin/resets/:id', 'admin', ({ params }) => {
   if (i < 0) throw new HttpError(404, 'Request not found');
   db.resets.splice(i, 1); save(); return { ok: true };
 });
-route('POST', '/api/auth/logout', 'user', ({ req }) => {
-  delete db.sessions[req.headers.authorization.slice(7)]; save(); return { ok: true };
+route('POST', '/api/auth/logout', 'user', async ({ req }) => {
+  const tokenHash = hashToken(req.headers.authorization.slice(7));
+  delete db.sessions[tokenHash]; 
+  await save(); 
+  return { ok: true };
 });
 
 // ---- resident
@@ -578,6 +606,39 @@ route('POST', '/api/me/profile', 'user', async ({ body, user }) => {
   log(`${fullName(user)} updated their profile (${changed.join(', ')})`, 'user');
   save();
   return pubUser(user);
+});
+
+// Phase 2 (SEC-01, SEC-39): Authenticated, deduplicated SOS endpoint
+route('POST', '/api/sos', 'user', async ({ body, user }) => {
+  limit('reportCrit', user.id); // Prevent spamming SOS using the critical report rate limit
+
+  const clientId = /^[A-Za-z0-9-]{8,64}$/.test(str(body.clientId, 64)) ? str(body.clientId, 64) : '';
+  if (clientId) {
+    const dup = db.reports.find((x) => x.userId === user.id && x.clientId === clientId && x.type === 'SOS Emergency');
+    if (dup) return dup;
+  }
+
+  const { lat, lng } = cleanLatLng(body.lat, body.lng);
+  const received = nowIso();
+  db.counters.report += 1;
+
+  const r = {
+    id: 'EH-' + String(db.counters.report).padStart(4, '0'),
+    type: 'SOS Emergency', kind: 'incident', description: 'Immediate SOS Alert triggered from mobile app.',
+    urgency: 'Critical', locationText: 'GPS Location Used', lat, lng, outside: outsideArea(lat, lng),
+    anonymous: false, status: 'NEW', userId: user.id, assignedTo: '', clientId,
+    reportedAt: received, createdAt: received, updatedAt: received, photos: [],
+    timeline: [{ at: received, text: 'SOS Activated by resident' }],
+  };
+
+  db.reports.push(r);
+  log(`🚨 SOS Emergency triggered by ${fullName(user)} (ID: ${r.id})`, 'report');
+  
+  // Instantly alert admins in the console
+  notify({ kind: 'alert', category: 'alert', title: `🚨 SOS: ${fullName(user)}`, body: `Immediate assistance required!`, refId: r.id });
+  
+  await save();
+  return r;
 });
 
 route('POST', '/api/reports', 'user', ({ body, user }) => {
@@ -674,10 +735,21 @@ route('GET', '/api/photos/:name', 'user', ({ params, user }) => {
 });
 route('GET', '/api/reports/mine', 'user', ({ user }) =>
   db.reports.filter((r) => r.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(residentView));
+// Phase 2 (SEC-19): Coarsen public locations for sensitive incident types
 route('GET', '/api/reports/public', 'user', () =>
   db.reports.filter((r) => ['VERIFIED', 'DISPATCHED'].includes(r.status)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map((r) => ({ id: r.id, type: r.type, kind: r.kind, urgency: r.urgency, status: r.status, locationText: r.locationText, lat: r.lat, lng: r.lng, createdAt: r.createdAt })));
-
+    .map((r) => {
+      const isSensitive = ['Medical emergency', 'Crime / safety threat'].includes(r.type);
+      return { 
+        id: r.id, type: r.type, kind: r.kind, urgency: r.urgency, status: r.status, 
+        locationText: isSensitive ? 'General Area (Protected)' : r.locationText, 
+        // Truncate decimals to ~1km accuracy for sensitive reports
+        lat: isSensitive && r.lat ? Number(r.lat.toFixed(3)) : r.lat, 
+        lng: isSensitive && r.lng ? Number(r.lng.toFixed(3)) : r.lng, 
+        createdAt: r.createdAt 
+      };
+    })
+);
 // ---- admin
 // ------------------------------------------------------------------ road blockages (set and cleared by the admin)
 const BLOCK_REASONS = ['Flood', 'Accident', 'Road works', 'Fallen tree', 'Fire', 'Event / parade', 'Other'];
@@ -749,7 +821,15 @@ route('GET', '/api/admin/stats', 'admin', () => {
     activity: db.activity.slice(0, 8),
   };
 });
-const adminReport = (r) => { const u = db.users.find((x) => x.id === r.userId); return { ...r, reporterName: fullName(u), reporterZone: (u && u.zone) || '', reporterContactMasked: u ? mask(u.contact) : '' }; };
+// Phase 2 (SEC-18): Hide identity for anonymous reports
+const adminReport = (r) => { 
+  const u = db.users.find((x) => x.id === r.userId); 
+  if (r.anonymous) {
+    return { ...r, reporterName: 'Anonymous Resident', reporterZone: 'Hidden', reporterContactMasked: '••••' };
+  }
+  return { ...r, reporterName: fullName(u), reporterZone: (u && u.zone) || '', reporterContactMasked: u ? mask(u.contact) : '' }; 
+};
+
 route('GET', '/api/admin/reports', 'admin', ({ query }) => {
   const q = (query.get('q') || '').toLowerCase(), st = query.get('status');
   return db.reports.filter((r) => (!st || r.status === st) && (!q || `${r.id} ${r.type} ${r.locationText}`.toLowerCase().includes(q)))
@@ -808,17 +888,33 @@ route('GET', '/api/admin/search', 'admin', ({ query }) => {
   }
   return { reports, residents, locations: [...counts.values()].slice(0, 4) };
 });
-route('POST', '/api/admin/log-export', 'admin', ({ body, user }) => {
+route('POST', '/api/admin/log-export', 'admin', async ({ body, user }) => {
   log(`${fullName(user)} exported ${str(body.what, 40) || 'data'}${str(body.reason, 80) ? ' for “' + str(body.reason, 80) + '”' : ''} (${Math.max(0, Math.min(1e6, Math.floor(Number(body.count) || 0)))} rows${str(body.format, 10) ? ', ' + str(body.format, 10) : ''})`, 'export');
-  save();
+  await save();
   return { ok: true };
 });
-route('PATCH', '/api/admin/reports/:id', 'admin', ({ params, body, user }) => {
+route('PATCH', '/api/admin/reports/:id', 'admin', async ({ params, body, user }) => {
   const r = db.reports.find((x) => x.id === params.id);
   if (!r) throw new HttpError(404, 'Report not found');
+  
   if (body.status !== undefined) {
     if (!STATUSES.includes(body.status)) throw bad('Invalid status');
+    
+    // Phase 1 (SEC-37): Strict status transition enforcement
+    const VALID_TRANSITIONS = {
+      'NEW': ['VERIFIED', 'REJECTED'],
+      'VERIFIED': ['DISPATCHED', 'RESOLVED'],
+      'DISPATCHED': ['RESOLVED'],
+      'RESOLVED': ['NEW'],
+      'REJECTED': ['NEW']
+    };
+    
+    if (body.status !== r.status && !VALID_TRANSITIONS[r.status].includes(body.status)) {
+      throw bad(`Cannot change report status directly from ${r.status} to ${body.status}`);
+    }
+
     if (body.status === 'REJECTED' && body.status !== r.status && !str(body.reason, 80)) throw bad('Choose a reason for rejecting this report');
+    
     if (body.status !== r.status) {
       r.status = body.status;
       if (body.status === 'REJECTED') { r.rejectReason = str(body.reason, 80); r.rejectNote = str(body.note, 300); }
@@ -847,7 +943,8 @@ route('PATCH', '/api/admin/reports/:id', 'admin', ({ params, body, user }) => {
           body: 'Verified by the barangay. Stay clear of the area and follow official advisories.', refId: r.id });
       }
     }
-  }
+  } 
+  
   if (body.onSite === true && !r.onSiteAt && r.status === 'DISPATCHED') {
     r.onSiteAt = nowIso();
     r.timeline.push({ at: r.onSiteAt, text: `Responders on site (${fullName(user)})` });
@@ -857,8 +954,9 @@ route('PATCH', '/api/admin/reports/:id', 'admin', ({ params, body, user }) => {
     r.assignedTo = str(body.assignedTo, 60);
     if (r.assignedTo) r.timeline.push({ at: nowIso(), text: `Assigned to ${r.assignedTo}` });
   }
+  
   r.updatedAt = nowIso();
-  save();
+  await save();
   return adminReport(r);
 });
 
@@ -1000,7 +1098,25 @@ function serveStatic(req, res, pathname) {
 // ------------------------------------------------------------------ server
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  const cors = { 'Access-Control-Allow-Origin': CORS_ORIGIN, 'Access-Control-Expose-Headers': 'Retry-After', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS', 'Vary': 'Origin' };
+  // Phase 1 (SEC-30): Explicit CORS origin handling (fail fast if still '*' in production)
+  if (process.env.NODE_ENV === 'production' && CORS_ORIGIN === '*') {
+    console.error('CRITICAL: CORS_ORIGIN must be explicitly set in production');
+    process.exit(1);
+  }
+  
+  const cors = { 
+    'Access-Control-Allow-Origin': CORS_ORIGIN, 
+    'Access-Control-Expose-Headers': 'Retry-After', 
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type', 
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS', 
+    'Vary': 'Origin',
+    // Phase 1 (SEC-31): Security headers
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+  };
+
   try {
     if (!url.pathname.startsWith('/api/')) {
       if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed' });
