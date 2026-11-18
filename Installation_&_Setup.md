@@ -21,7 +21,7 @@ for local setup and development.
 | **Storage** | Application data             | `server/data.json` by default; PostgreSQL when configured |
 
 The backend is the central source of data. Admin-managed information
-should flow to residents through backend APIs. Resident reports should
+should flow to residents through backend APIs. Resident reports should.
 flow to the backend and become available to authorized administrators.
 Empty databases must produce honest empty states---not dummy residents,
 reports, announcements, contacts, or other fabricated official content.
