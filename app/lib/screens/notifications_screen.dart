@@ -59,7 +59,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final kept = stored.intersection(feed.items.map((n) => n.id).toSet());
       if (kept.length != stored.length) await prefs.setStringList(_key, kept.toList());
       _dismissed = kept;
-    } catch (_) {
+    } catch (e) {
       // If saving is not possible, nothing is hidden; the list still works.
     }
   }
@@ -68,7 +68,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_key, _dismissed.toList());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Failed to save dismissed notifications: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Warning: Failed to save preferences.')),
+        );
+      }
+    }
   }
 
   Future<NotificationFeed> _load() async {
