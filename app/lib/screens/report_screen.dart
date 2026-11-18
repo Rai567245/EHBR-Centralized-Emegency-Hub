@@ -365,7 +365,7 @@ class _ReportScreenState extends State<ReportScreen> {
       if (mounted) {
         setState(() => _photos.add(bytes));
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(
           () => _error =
