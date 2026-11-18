@@ -6,7 +6,7 @@ https://github.com/Rai567245/EHBR-Centralized-Emegency-Hub/tree/main
 **Workflow:** GitHub website for repository management; VS Code terminal
 for local setup and development.
 
-> **Important:** This guide is based on the supplied project notes.
+> **Important:** This guide is based on the supplied project notes
 > Verify commands, paths, scripts, and features against the current
 > repository before running them. Source code and current manifests take
 > precedence over older documentation.
