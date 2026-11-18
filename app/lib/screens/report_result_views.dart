@@ -47,10 +47,11 @@ class ReportSubmittedView extends StatelessWidget {
 
   static const _progress = {'NEW': 1, 'VERIFIED': 2, 'DISPATCHED': 3, 'RESOLVED': 4};
 
-  @override
+ @override
   Widget build(BuildContext context) {
+    final isRejected = report.status == 'REJECTED';
     final idx = _progress[report.status] ?? 1;
-    StepPhase st(int i) => i < idx ? StepPhase.done : (i == idx ? StepPhase.now : StepPhase.pending);
+    StepPhase st(int i) => isRejected ? StepPhase.done : (i < idx ? StepPhase.done : (i == idx ? StepPhase.now : StepPhase.pending));
     final where = report.locationText.isEmpty ? report.type : '${report.type} - ${report.locationText}';
 
     return Column(
@@ -76,21 +77,29 @@ class ReportSubmittedView extends StatelessWidget {
           child: Container(
             width: 76,
             height: 76,
-            decoration: const BoxDecoration(color: Color(0xFFDDF3E4), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: isRejected ? const Color(0xFFFDEEF0) : const Color(0xFFDDF3E4), 
+              shape: BoxShape.circle,
+            ),
             alignment: Alignment.center,
             child: Container(
               width: 54,
               height: 54,
-              decoration: const BoxDecoration(color: Color(0xFF15803D), shape: BoxShape.circle),
-              child: const Icon(Icons.check, color: Colors.white, size: 32),
+              decoration: BoxDecoration(
+                color: isRejected ? EhbrColors.brand : const Color(0xFF15803D), 
+                shape: BoxShape.circle,
+              ),
+              child: Icon(isRejected ? Icons.close : Icons.check, color: Colors.white, size: 32),
             ),
           ),
         ),
         const SizedBox(height: 12),
-        Center(child: Text('Report submitted', style: manrope(20, FontWeight.w800, EhbrColors.ink))),
+        Center(child: Text(isRejected ? 'Report Rejected' : 'Report submitted', style: manrope(20, FontWeight.w800, EhbrColors.ink))),
         const SizedBox(height: 6),
         Text(
-          'Thank you. Barangay staff can now see your report and will review it.',
+          isRejected 
+              ? 'This report was reviewed and rejected by the barangay.'
+              : 'Thank you. Barangay staff can now see your report and will review it.',
           textAlign: TextAlign.center,
           style: manrope(12, FontWeight.w400, EhbrColors.muted),
         ),
@@ -133,12 +142,42 @@ class ReportSubmittedView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        StatusSteps(steps: [
-          StepData('Report sent', '', StepPhase.done, time: stamp(report.createdAt)),
-          StepData('Under review', 'Staff are checking the details', st(1)),
-          StepData('Responders assigned', 'You will get a notification', st(2)),
-          StepData('Resolved', 'We will tell you when it’s closed', st(3)),
-        ]),
+        if (isRejected)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFDEEF0),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF2B8C0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.cancel_outlined, size: 20, color: EhbrColors.brand),
+                    const SizedBox(width: 8),
+                    Text('Reason for rejection', style: manrope(14, FontWeight.w700, EhbrColors.brand)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  // Depending on your backend, the rejection note might be stored in resolutionDetails or a timeline array. 
+                  // If it's a field on your Report model, use it here (e.g., report.resolutionDetails). 
+                  // We'll use a placeholder string for now.
+                  'This report was marked as a duplicate or invalid by the dispatcher.', 
+                  style: manrope(13, FontWeight.w500, EhbrColors.ink).copyWith(height: 1.4),
+                ),
+              ],
+            ),
+          )
+        else
+          StatusSteps(steps: [
+            StepData('Report sent', '', StepPhase.done, time: stamp(report.createdAt)),
+            StepData('Under review', 'Staff are checking the details', st(1)),
+            StepData('Responders assigned', 'You will get a notification', st(2)),
+            StepData('Resolved', 'We will tell you when it’s closed', st(3)),
+          ]),
         const SizedBox(height: 16),
         _bigButton('Back to Home', onBack),
         const SizedBox(height: 10),
