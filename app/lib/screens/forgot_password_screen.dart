@@ -888,15 +888,30 @@ class _ForgotPasswordScreenState
 
         _fieldLabel('Registered contact number'),
 
-        TextFormField(
+     TextFormField(
           controller: _contact,
           keyboardType: TextInputType.phone,
           style: _inputText,
           cursorColor: EhbrColors.ink,
+          // Real-time validation toggle
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          // Block letters/symbols and limit to 11 digits
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(11),
+          ],
           decoration: _inputDecoration(
             hint: 'Enter your contact number',
             icon: Icons.phone_outlined,
           ),
+          // Smart real-time indicator
+          validator: (v) {
+            final text = v ?? '';
+            if (text.isEmpty) return 'Enter your contact number';
+            if (!text.startsWith('09')) return 'Must start with 09 (e.g., 0912...)';
+            if (text.length < 11) return 'Must be exactly 11 digits';
+            return null;
+          },
         ),
 
         const SizedBox(height: 10),
