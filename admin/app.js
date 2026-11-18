@@ -575,6 +575,19 @@ const EH = (() => {
   function init() {
     const u = currentUser();
     if (!localStorage.getItem(TOKEN) || !u || u.role !== 'admin') { location.href = 'login.html'; return null; }
+    
+    // Phase 2 (SEC-13): 15-minute idle timeout
+    let idleTimer;
+    const resetIdle = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        logout();
+        alert('Your session has timed out due to inactivity.');
+      }, 15 * 60 * 1000); // 15 minutes
+    };
+    ['click', 'scroll', 'keydown', 'mousemove', 'touchstart'].forEach(e => document.addEventListener(e, resetIdle, { passive: true }));
+    resetIdle();
+
     const name = $('.user__name'); if (name) name.textContent = `${u.firstName} ${u.lastName}`.trim();
     const sub = $('.user__place'); if (sub) sub.textContent = 'Administrator';
     const out = $('#logoutBtn'); if (out) out.addEventListener('click', async () => { if (await confirmBox('Sign out of Admin Console?', 'You will need to sign in again to manage incidents and reports. Unsent changes will be lost.', 'Sign Out', false)) logout(); });
