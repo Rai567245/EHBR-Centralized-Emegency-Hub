@@ -27,17 +27,18 @@
     if (layer) layer.remove();
     layer = L.featureGroup().addTo(map);
     const pts = [];
+    // Phase 2 (SEC-38): Wrap resident-supplied strings in esc()
     if (filter !== 'center') located.filter((r) => (filter === 'all' || r.kind === filter) && layers[r.kind]).forEach((r) => {
       const m = marker(layer, r.lat, r.lng, r.kind, { radius: r.id === selected ? 12 : 9 });
-      m.bindTooltip(`${r.type} · ${r.locationText || ''}`); m.on('click', () => showPanel(r)); pts.push([r.lat, r.lng]);
+      m.bindTooltip(esc(`${r.type} · ${r.locationText || ''}`)); m.on('click', () => showPanel(r)); pts.push([r.lat, r.lng]);
     });
     if ((filter === 'all' || filter === 'center') && layers.center) data.centers.filter((c) => c.lat != null).forEach((c) => {
-      marker(layer, c.lat, c.lng, 'center').bindTooltip(`${c.name} · ${c.status}`); pts.push([c.lat, c.lng]);
+      marker(layer, c.lat, c.lng, 'center').bindTooltip(esc(`${c.name} · ${c.status}`)); pts.push([c.lat, c.lng]);
     });
-    // road blockages are always shown (dark markers) so staff can see which roads are closed
     if (layers.block) data.blocks.filter((b) => !b.expired).forEach((b) => {
-      marker(layer, b.lat, b.lng, 'block', { radius: 10 }).bindTooltip(`Road blocked: ${b.title} · ${b.reason}`).on('click', () => { location.href = 'blockages.html'; });
+      marker(layer, b.lat, b.lng, 'block', { radius: 10 }).bindTooltip(esc(`Road blocked: ${b.title} · ${b.reason}`)).on('click', () => { location.href = 'blockages.html'; });
     });
+    
     if (!draw.fitted && pts.length) { map.fitBounds(pts, { padding: [50, 50], maxZoom: 16 }); draw.fitted = true; }
     const noGps = open.length - located.length;
     let note = $('#bigMap .map-note');
