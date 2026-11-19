@@ -39,7 +39,9 @@ class HomeScreen extends StatelessWidget {
 
   /// Opens the Create Report form, optionally pre-selecting a type.
   final ValueChanged<String?> onReport;
-  final VoidCallback onOpenNews;
+
+  /// Opens the News tab, on a specific announcement when an id is given.
+  final ValueChanged<String?> onOpenNews;
 
   Future<_HomeData> _load() async {
     try {
@@ -189,7 +191,7 @@ class HomeScreen extends StatelessWidget {
 
               if (alert != null) ...[
                 const SizedBox(height: 20),
-                _AlertBanner(alert, onTap: onOpenNews),
+                _AlertBanner(alert, onTap: () => onOpenNews(alert.id)),
               ],
 
               if (offline) ...[
@@ -219,7 +221,7 @@ class HomeScreen extends StatelessWidget {
                     if (announcements.length > 3)
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: onOpenNews,
+                        onTap: () => onOpenNews(null),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Text(
@@ -246,7 +248,7 @@ class HomeScreen extends StatelessWidget {
                   for (final a in announcements.take(3)) ...[
                     _AnnouncementTile(
                       a,
-                      onTap: onOpenNews,
+                      onTap: () => onOpenNews(a.id),
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -700,61 +702,75 @@ class _AnnouncementTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+        // One fixed card size, so every announcement looks the same
+        // whatever the length of its title or message.
+        child: SizedBox(
+          height: 124,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        categoryTag(a.category),
+                        style: manrope(10, FontWeight.w700, color),
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: .1),
-                      borderRadius: BorderRadius.circular(6),
+                    const Spacer(),
+                    Text(
+                      ago(a.createdAt),
+                      style: manrope(
+                        11,
+                        FontWeight.w500,
+                        EhbrColors.muted,
+                      ),
                     ),
-                    child: Text(
-                      categoryTag(a.category),
-                      style: manrope(10, FontWeight.w700, color),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    ago(a.createdAt),
-                    style: manrope(
-                      11,
-                      FontWeight.w500,
-                      EhbrColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                a.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: manrope(
-                  13,
-                  FontWeight.w700,
-                  EhbrColors.ink,
+                  ],
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                a.body,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: manrope(
-                  12,
-                  FontWeight.w400,
-                  EhbrColors.muted,
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: manrope(
+                          13,
+                          FontWeight.w700,
+                          EhbrColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Flexible(
+                        child: Text(
+                          a.body,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: manrope(
+                            12,
+                            FontWeight.w400,
+                            EhbrColors.muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
