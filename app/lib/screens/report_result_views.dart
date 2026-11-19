@@ -7,13 +7,20 @@ import '../util.dart';
 import '../widgets/emergency_numbers.dart';
 import '../widgets/status_steps.dart';
 
-Widget _bigButton(String label, VoidCallback onTap, {bool filled = true}) => SizedBox(
+Widget _bigButton(
+  String label,
+  VoidCallback onTap, {
+  bool filled = true,
+}) =>
+    SizedBox(
       width: double.infinity,
       child: Material(
         color: filled ? EhbrColors.brand : Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: filled ? BorderSide.none : const BorderSide(color: EhbrColors.ink, width: 1.2),
+          side: filled
+              ? BorderSide.none
+              : const BorderSide(color: EhbrColors.ink, width: 1.2),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -21,7 +28,14 @@ Widget _bigButton(String label, VoidCallback onTap, {bool filled = true}) => Siz
           child: SizedBox(
             height: 44,
             child: Center(
-              child: Text(label, style: manrope(14, FontWeight.w700, filled ? Colors.white : EhbrColors.ink)),
+              child: Text(
+                label,
+                style: manrope(
+                  14,
+                  FontWeight.w700,
+                  filled ? Colors.white : EhbrColors.ink,
+                ),
+              ),
             ),
           ),
         ),
@@ -45,14 +59,30 @@ class ReportSubmittedView extends StatelessWidget {
   /// True when this report had been saved offline and just reached the barangay.
   final bool sentFromQueue;
 
-  static const _progress = {'NEW': 1, 'VERIFIED': 2, 'DISPATCHED': 3, 'RESOLVED': 4};
+  static const _progress = {
+    'NEW': 1,
+    'VERIFIED': 2,
+    'DISPATCHED': 3,
+    'RESOLVED': 4,
+  };
 
- @override
+  @override
   Widget build(BuildContext context) {
     final isRejected = report.status == 'REJECTED';
     final idx = _progress[report.status] ?? 1;
-    StepPhase st(int i) => isRejected ? StepPhase.done : (i < idx ? StepPhase.done : (i == idx ? StepPhase.now : StepPhase.pending));
-    final where = report.locationText.isEmpty ? report.type : '${report.type} - ${report.locationText}';
+
+    final rejectionReason = report.rejectReason?.trim() ?? '';
+    final rejectionNote = report.rejectNote?.trim() ?? '';
+
+    StepPhase st(int i) => isRejected
+        ? StepPhase.done
+        : (i < idx
+            ? StepPhase.done
+            : (i == idx ? StepPhase.now : StepPhase.pending));
+
+    final where = report.locationText.isEmpty
+        ? report.type
+        : '${report.type} - ${report.locationText}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -60,25 +90,45 @@ class ReportSubmittedView extends StatelessWidget {
         if (sentFromQueue)
           Container(
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(color: const Color(0xFFE6F6EA), borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE6F6EA),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Row(
               children: [
-                const Icon(Icons.cloud_done_outlined, size: 18, color: Color(0xFF15803D)),
+                const Icon(
+                  Icons.cloud_done_outlined,
+                  size: 18,
+                  color: Color(0xFF15803D),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Back online – your saved report reached the barangay.',
-                      style: manrope(12, FontWeight.w700, const Color(0xFF15803D))),
+                  child: Text(
+                    'Back online – your saved report reached the barangay.',
+                    style: manrope(
+                      12,
+                      FontWeight.w700,
+                      const Color(0xFF15803D),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
+
+        // Submission or rejection indicator.
         Center(
           child: Container(
             width: 76,
             height: 76,
             decoration: BoxDecoration(
-              color: isRejected ? const Color(0xFFFDEEF0) : const Color(0xFFDDF3E4), 
+              color: isRejected
+                  ? const Color(0xFFFDEEF0)
+                  : const Color(0xFFDDF3E4),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
@@ -86,30 +136,58 @@ class ReportSubmittedView extends StatelessWidget {
               width: 54,
               height: 54,
               decoration: BoxDecoration(
-                color: isRejected ? EhbrColors.brand : const Color(0xFF15803D), 
+                color: isRejected
+                    ? EhbrColors.brand
+                    : const Color(0xFF15803D),
                 shape: BoxShape.circle,
               ),
-              child: Icon(isRejected ? Icons.close : Icons.check, color: Colors.white, size: 32),
+              child: Icon(
+                isRejected ? Icons.close : Icons.check,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
           ),
         ),
+
         const SizedBox(height: 12),
-        Center(child: Text(isRejected ? 'Report Rejected' : 'Report submitted', style: manrope(20, FontWeight.w800, EhbrColors.ink))),
+
+        Center(
+          child: Text(
+            isRejected ? 'Report Rejected' : 'Report submitted',
+            style: manrope(
+              20,
+              FontWeight.w800,
+              EhbrColors.ink,
+            ),
+          ),
+        ),
+
         const SizedBox(height: 6),
+
         Text(
-          isRejected 
+          isRejected
               ? 'This report was reviewed and rejected by the barangay.'
               : 'Thank you. Barangay staff can now see your report and will review it.',
           textAlign: TextAlign.center,
-          style: manrope(12, FontWeight.w400, EhbrColors.muted),
+          style: manrope(
+            12,
+            FontWeight.w400,
+            EhbrColors.muted,
+          ),
         ),
+
         const SizedBox(height: 14),
+
+        // Report reference information.
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFFF3F4F8),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E4EA)),
+            border: Border.all(
+              color: const Color(0xFFE2E4EA),
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,9 +195,23 @@ class ReportSubmittedView extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Reference no.', style: manrope(10, FontWeight.w600, EhbrColors.muted)),
+                  Text(
+                    'Reference no.',
+                    style: manrope(
+                      10,
+                      FontWeight.w600,
+                      EhbrColors.muted,
+                    ),
+                  ),
                   const SizedBox(height: 3),
-                  Text(report.id, style: manrope(14, FontWeight.w800, EhbrColors.ink)),
+                  Text(
+                    report.id,
+                    style: manrope(
+                      14,
+                      FontWeight.w800,
+                      EhbrColors.ink,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(width: 12),
@@ -127,61 +219,143 @@ class ReportSubmittedView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(where,
-                        maxLines: 2,
-                        textAlign: TextAlign.end,
-                        overflow: TextOverflow.ellipsis,
-                        style: manrope(12, FontWeight.w700, EhbrColors.ink)),
+                    Text(
+                      where,
+                      maxLines: 2,
+                      textAlign: TextAlign.end,
+                      overflow: TextOverflow.ellipsis,
+                      style: manrope(
+                        12,
+                        FontWeight.w700,
+                        EhbrColors.ink,
+                      ),
+                    ),
                     const SizedBox(height: 3),
-                    Text('Posted ${stamp(report.createdAt)}',
-                        textAlign: TextAlign.end, style: manrope(10, FontWeight.w500, EhbrColors.muted)),
+                    Text(
+                      'Posted ${stamp(report.createdAt)}',
+                      textAlign: TextAlign.end,
+                      style: manrope(
+                        10,
+                        FontWeight.w500,
+                        EhbrColors.muted,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
         ),
+
         const SizedBox(height: 12),
+
+        // Rejection details from the backend.
         if (isRejected)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: const Color(0xFFFDEEF0),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFF2B8C0)),
+              border: Border.all(
+                color: const Color(0xFFF2B8C0),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.cancel_outlined, size: 20, color: EhbrColors.brand),
+                    const Icon(
+                      Icons.cancel_outlined,
+                      size: 20,
+                      color: EhbrColors.brand,
+                    ),
                     const SizedBox(width: 8),
-                    Text('Reason for rejection', style: manrope(14, FontWeight.w700, EhbrColors.brand)),
+                    Text(
+                      'Reason for rejection',
+                      style: manrope(
+                        14,
+                        FontWeight.w700,
+                        EhbrColors.brand,
+                      ),
+                    ),
                   ],
                 ),
+
                 const SizedBox(height: 8),
+
                 Text(
-                  // Depending on your backend, the rejection note might be stored in resolutionDetails or a timeline array. 
-                  // If it's a field on your Report model, use it here (e.g., report.resolutionDetails). 
-                  // We'll use a placeholder string for now.
-                  'This report was marked as a duplicate or invalid by the dispatcher.', 
-                  style: manrope(13, FontWeight.w500, EhbrColors.ink).copyWith(height: 1.4),
+                  rejectionReason.isNotEmpty
+                      ? rejectionReason
+                      : 'No rejection reason was provided.',
+                  style: manrope(
+                    13,
+                    FontWeight.w600,
+                    EhbrColors.ink,
+                  ).copyWith(height: 1.4),
                 ),
+
+                if (rejectionNote.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Additional note',
+                    style: manrope(
+                      12,
+                      FontWeight.w700,
+                      EhbrColors.brand,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    rejectionNote,
+                    style: manrope(
+                      13,
+                      FontWeight.w500,
+                      EhbrColors.ink,
+                    ).copyWith(height: 1.4),
+                  ),
+                ],
               ],
             ),
           )
         else
-          StatusSteps(steps: [
-            StepData('Report sent', '', StepPhase.done, time: stamp(report.createdAt)),
-            StepData('Under review', 'Staff are checking the details', st(1)),
-            StepData('Responders assigned', 'You will get a notification', st(2)),
-            StepData('Resolved', 'We will tell you when it’s closed', st(3)),
-          ]),
+          StatusSteps(
+            steps: [
+              StepData(
+                'Report sent',
+                '',
+                StepPhase.done,
+                time: stamp(report.createdAt),
+              ),
+              StepData(
+                'Under review',
+                'Staff are checking the details',
+                st(1),
+              ),
+              StepData(
+                'Responders assigned',
+                'You will get a notification',
+                st(2),
+              ),
+              StepData(
+                'Resolved',
+                'We will tell you when it’s closed',
+                st(3),
+              ),
+            ],
+          ),
+
         const SizedBox(height: 16),
+
         _bigButton('Back to Home', onBack),
+
         const SizedBox(height: 10),
-        _bigButton('View my reports', onViewReports, filled: false),
+
+        _bigButton(
+          'View my reports',
+          onViewReports,
+          filled: false,
+        ),
       ],
     );
   }
@@ -208,6 +382,7 @@ class ReportQueuedView extends StatelessWidget {
   Widget build(BuildContext context) {
     const amber = Color(0xFFD99A06);
     final refused = queued.error != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -215,7 +390,10 @@ class ReportQueuedView extends StatelessWidget {
           child: Container(
             width: 76,
             height: 76,
-            decoration: const BoxDecoration(color: Color(0xFFFFF1CC), shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF1CC),
+              shape: BoxShape.circle,
+            ),
             alignment: Alignment.center,
             child: Container(
               width: 54,
@@ -223,38 +401,85 @@ class ReportQueuedView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: amber, width: 3),
+                border: Border.all(
+                  color: amber,
+                  width: 3,
+                ),
               ),
-              child: const Icon(Icons.priority_high_rounded, color: amber, size: 30),
+              child: const Icon(
+                Icons.priority_high_rounded,
+                color: amber,
+                size: 30,
+              ),
             ),
           ),
         ),
+
         const SizedBox(height: 12),
-        Center(child: Text('Report saved on your phone', style: manrope(20, FontWeight.w800, EhbrColors.ink))),
+
+        Center(
+          child: Text(
+            'Report saved on your phone',
+            style: manrope(
+              20,
+              FontWeight.w800,
+              EhbrColors.ink,
+            ),
+          ),
+        ),
+
         const SizedBox(height: 6),
+
         Text(
           'It has not reached the barangay yet (no connection, or the server is busy). Nothing is lost. '
           'It will send by itself when you are back online – open the app again if you closed it.',
           textAlign: TextAlign.center,
-          style: manrope(12, FontWeight.w400, EhbrColors.muted),
+          style: manrope(
+            12,
+            FontWeight.w400,
+            EhbrColors.muted,
+          ),
         ),
+
         const SizedBox(height: 12),
+
         Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
           decoration: BoxDecoration(
-            color: refused ? const Color(0xFFFDEEF0) : const Color(0xFFFFF4D6),
+            color: refused
+                ? const Color(0xFFFDEEF0)
+                : const Color(0xFFFFF4D6),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: refused ? const Color(0xFFF2B8C0) : const Color(0xFFF2D58A)),
+            border: Border.all(
+              color: refused
+                  ? const Color(0xFFF2B8C0)
+                  : const Color(0xFFF2D58A),
+            ),
           ),
           child: Row(
             children: [
-              Icon(refused ? Icons.error_outline : Icons.wifi_off_rounded,
-                  size: 16, color: refused ? EhbrColors.brand : const Color(0xFF8A6100)),
+              Icon(
+                refused
+                    ? Icons.error_outline
+                    : Icons.wifi_off_rounded,
+                size: 16,
+                color: refused
+                    ? EhbrColors.brand
+                    : const Color(0xFF8A6100),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  refused ? 'Couldn’t be sent: ${queued.error}' : 'No internet connection · Waiting to send',
-                  style: manrope(11, FontWeight.w700, refused ? EhbrColors.brand : const Color(0xFF8A6100)),
+                  refused
+                      ? 'Couldn’t be sent: ${queued.error}'
+                      : 'No internet connection · Waiting to send',
+                  style: manrope(
+                    11,
+                    FontWeight.w700,
+                    refused
+                        ? EhbrColors.brand
+                        : const Color(0xFF8A6100),
+                  ),
                 ),
               ),
               TextButton(
@@ -264,26 +489,53 @@ class ReportQueuedView extends StatelessWidget {
                   minimumSize: const Size(0, 28),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: Text('Try now', style: manrope(11, FontWeight.w800, EhbrColors.ink)),
+                child: Text(
+                  'Try now',
+                  style: manrope(
+                    11,
+                    FontWeight.w800,
+                    EhbrColors.ink,
+                  ),
+                ),
               ),
             ],
           ),
         ),
+
         const SizedBox(height: 12),
+
         StatusSteps(
           nowColor: amber,
           steps: [
-            StepData('Saved on your phone', '', StepPhase.done, time: stamp(queued.savedAt)),
-            const StepData('Waiting for connection', 'Sends automatically when online', StepPhase.now),
-            const StepData('Sent to barangay staff', 'You will get a notification', StepPhase.pending),
+            StepData(
+              'Saved on your phone',
+              '',
+              StepPhase.done,
+              time: stamp(queued.savedAt),
+            ),
+            const StepData(
+              'Waiting for connection',
+              'Sends automatically when online',
+              StepPhase.now,
+            ),
+            const StepData(
+              'Sent to barangay staff',
+              'You will get a notification',
+              StepPhase.pending,
+            ),
           ],
         ),
+
         const SizedBox(height: 12),
         const EmergencyNumbersCard(),
         const SizedBox(height: 16),
         _bigButton('Back to Home', onBack),
         const SizedBox(height: 10),
-        _bigButton('View queued report', onViewQueued, filled: false),
+        _bigButton(
+          'View queued report',
+          onViewQueued,
+          filled: false,
+        ),
       ],
     );
   }
