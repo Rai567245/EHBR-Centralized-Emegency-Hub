@@ -1988,3 +1988,864 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--brand); outline
 @media (max-width: 380px) {
   #savebar .btn { padding: 0 10px; }
 }
+/* =====================================================================
+   Visual refresh ("new look"): softer cards, tinted stat tiles with a color
+   accent, status-coloured queue rows, coloured activity dots, a red gradient
+   for the main actions and the active menu item. Colours, borders, shadows
+   and radii only: no spacing or layout changes, so every responsive fix
+   above still applies. Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+:root { --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 8px 24px -14px rgba(16, 24, 40, .14); --shadow-md: 0 2px 4px rgba(16, 24, 40, .06), 0 16px 32px -16px rgba(16, 24, 40, .22); }
+
+/* shell */
+.topbar { box-shadow: 0 1px 0 var(--line), 0 10px 24px -20px rgba(16, 24, 40, .35); }
+.nav__item { transition: background .15s, color .15s; }
+.nav__item:not(.is-active):hover { background: rgba(255, 255, 255, .06); }
+.nav__item.is-active { background: linear-gradient(135deg, #d6253f, #b01a33); box-shadow: 0 8px 18px -8px rgba(196, 30, 58, .7); }
+
+/* cards */
+.card, .stats .stat { border-color: rgba(16, 24, 40, .06); border-radius: 18px; box-shadow: var(--shadow-sm); }
+.card__title { letter-spacing: -.01em; }
+.row-map .card__header, .row-bottom .card__header { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+
+/* buttons */
+.btn { transition: background .15s, box-shadow .15s, transform .12s, border-color .15s; }
+.btn:active { transform: scale(.985); }
+.btn--primary { background: linear-gradient(180deg, #d02343, #b81b36); box-shadow: 0 8px 16px -8px rgba(196, 30, 58, .75); }
+.btn--primary:hover { background: linear-gradient(180deg, #d9294a, #c01d39); }
+
+/* stat tiles: tinted icon, thin colour accent, bold tabular numbers */
+.tone-red { --tone: var(--danger); } .tone-amber { --tone: var(--amber); } .tone-blue { --tone: var(--blue); } .tone-green { --tone: #22a447; }
+.stats .stat { position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s; }
+.stats .stat::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--tone); }
+.stats .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.tone-red .stat__icon { background: var(--danger-soft); color: var(--danger); }
+.tone-amber .stat__icon { background: var(--amber-soft); color: var(--amber-ink); }
+.tone-blue .stat__icon { background: var(--blue-soft); color: var(--blue); }
+.tone-green .stat__icon { background: var(--green-soft); color: var(--green-ink); }
+.stat__value { letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+
+/* priority queue: white rows with a status-coloured edge */
+.queue__item { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--muted); transition: background .15s, transform .15s, box-shadow .15s; }
+.queue__item:hover { background: var(--bg); transform: translateX(2px); }
+.queue__item:has(.pill--green) { border-left-color: var(--green); }
+.queue__item:has(.pill--red) { border-left-color: var(--danger); }
+.queue__item:has(.pill--blue) { border-left-color: var(--blue); }
+.queue__item:has(.pill--amber) { border-left-color: var(--amber); }
+
+/* recent activity: coloured dots with a soft ring */
+.activity .dot { box-shadow: 0 0 0 3px rgba(107, 114, 128, .14); }
+.activity .dot.dot--red { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.activity .dot.dot--blue { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.activity .dot.dot--green { background: #22a447; box-shadow: 0 0 0 3px var(--green-soft); }
+
+/* evacuation centers: rounded brand-red progress */
+.center__bar { height: 8px; border-radius: 99px; background: #eceef1; }
+.center__bar > span { background: linear-gradient(90deg, var(--brand), #e5566e) !important; border-radius: 99px; }
+.center__count { font-weight: 700; color: var(--ink); }
+
+/* map legend + credits */
+.legend__item { font-weight: 600; }
+.leaflet-container .leaflet-control-attribution { box-shadow: var(--shadow-sm); }
+
+/* =====================================================================
+   Brand logo: the emblem (logo.png) replaces the red "+" tile everywhere:
+   sidebar, phone app bar and the login page. Delete this block to revert.
+   ===================================================================== */
+.brand__logo, .login-page .login-logo {
+  background: url("assets/images/ehbr_logo.png") center / contain no-repeat; border-radius: 0; padding: 0; box-shadow: none; flex: none;
+}
+.brand__logo > svg, .login-page .login-logo > svg { display: none; }
+.brand__logo { width: 36px; height: 42px; }
+.appbar .brand__logo { width: 30px; height: 36px; padding: 0; }
+.login__brand .brand__logo { width: 40px; height: 47px; padding: 0; }
+.login-page .login-logo { width: 41px; height: 48px; }
+
+/* =====================================================================
+   Login: password show/hide button and browser autofill.
+   - the button had the browser's grey default background; now it is a clean
+     icon button with the same hover/focus style as the rest of the page
+   - autofilled fields stay white instead of turning blue
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.login-page .password-toggle { background: none; border: 0; cursor: pointer; padding: 6px; margin-right: -6px; border-radius: 8px; }
+.login-page .password-toggle:focus-visible { outline: 2px solid #c41e3a; outline-offset: 1px; }
+.login-page .login-input:-webkit-autofill,
+.login-page .login-input:-webkit-autofill:hover,
+.login-page .login-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #1e1e1e; caret-color: #1e1e1e;
+  -webkit-box-shadow: 0 0 0 100px #fff inset; box-shadow: 0 0 0 100px #fff inset;
+}
+/* =====================================================================
+   Dashboard v2: calm, mostly white and light grey. Colour is kept only where
+   it carries meaning (status pills, map markers, the main red action).
+   Adds a 7-day reports chart with status split, and a
+   "needs attention" list. Appended last on purpose. Delete this block to revert
+   (also restore index.html and pages/dashboard.js from the previous version).
+   ===================================================================== */
+/* stat tiles: white, light-grey icon tile, no colour accent */
+.stats .stat::before { display: none; }
+.stats .stat, .row-map .card, .row-insights .card, .row-bottom .card { border-color: #eceef1; }
+.stats .stat .stat__icon { background: #f3f4f6; color: #374151; }
+.stat__bar { display: block; height: 6px; border-radius: 99px; background: #eceef1; overflow: hidden; }
+.stat__bar > i { display: block; height: 100%; width: 0; border-radius: 99px; background: #1f2937; transition: width .4s ease; }
+.stat__bar[hidden] { display: none; }
+
+/* loading skeleton for the stat tiles */
+.is-loading .stat__value, .is-loading .stat__note {
+  color: transparent; border-radius: 8px; animation: dashShimmer 1.2s linear infinite;
+  background: linear-gradient(90deg, #f1f2f4 25%, #e6e8ec 50%, #f1f2f4 75%) 0 0 / 200% 100%;
+}
+.is-loading .stat__value { width: 56px; }
+.is-loading .stat__note { width: 70%; }
+@keyframes dashShimmer { to { background-position: -200% 0; } }
+
+/* refresh button (top bar, next to the bell) */
+#refreshBtn { cursor: pointer; }
+#refreshBtn:disabled { opacity: .6; cursor: progress; }
+#refreshBtn.is-busy .icon { animation: dashSpin .8s linear infinite; }
+@keyframes dashSpin { to { transform: rotate(360deg); } }
+
+/* card links: quiet grey instead of red */
+.row-map .card__link, .row-insights .card__link, .row-bottom .card__link { color: var(--muted); font-weight: 600; }
+.row-map .card__link:hover, .row-insights .card__link:hover, .row-bottom .card__link:hover { color: var(--ink); }
+
+/* priority queue: plain white rows */
+.row-map .queue__item, .row-map .queue__item:has(.pill) { border-left: 1px solid var(--line); }
+.queue__title .muted { color: var(--muted); font-weight: 500; }
+
+/* new row: reports chart + needs attention */
+.row-insights { display: flex; gap: 20px; align-items: stretch; }
+.row-insights > .card { min-width: 0; }
+.card--trend { flex: 2 1 0; }
+.card--attn { flex: 1 1 0; min-width: 300px; }
+.trend__top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.trend__total { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.trend__delta { font-size: 12px; color: var(--muted); }
+.bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; align-items: end; min-height: 150px; }
+.bars__col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
+.bars__col b { min-height: 14px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.bars__col i { display: block; width: 100%; max-width: 40px; min-height: 4px; border-radius: 8px; background: #e5e7eb; transition: height .4s ease; }
+.bars__col span { font-size: 11px; color: var(--muted); }
+.bars__col.is-today i { background: #1f2937; }
+.bars__col.is-today b, .bars__col.is-today span { color: var(--ink); font-weight: 700; }
+.split { display: flex; gap: 2px; height: 8px; border-radius: 99px; overflow: hidden; background: #eceef1; }
+.split > i { display: block; height: 100%; }
+.split__legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+.split__legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.split__legend > span > i { width: 8px; height: 8px; border-radius: 50%; }
+.split__legend b { color: var(--ink); font-weight: 700; }
+.s-new { background: #111827; } .s-verified { background: #4b5563; } .s-dispatched { background: #9ca3af; }
+.s-resolved { background: #d1d5db; } .s-rejected { background: #e5e7eb; box-shadow: inset 0 0 0 1px #d1d5db; }
+
+.attn { display: flex; flex-direction: column; }
+.attn__row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.attn__row:last-child { border-bottom: 0; padding-bottom: 2px; }
+.attn__row:hover .attn__txt { text-decoration: underline; text-underline-offset: 3px; }
+.attn__ico { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: #f3f4f6; color: #374151; }
+.attn__ico .icon { width: 16px; height: 16px; }
+.attn__txt { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.attn__txt small { display: block; margin-top: 1px; font-size: 11.5px; font-weight: 400; color: var(--muted); }
+.attn__n { display: grid; place-items: center; min-width: 28px; height: 26px; padding: 0 9px; border-radius: 99px; background: #1f2937; color: #fff; font-size: 12px; font-weight: 700; }
+.attn__row.is-zero .attn__n { background: #f3f4f6; color: var(--muted); font-weight: 600; }
+
+/* recent activity: neutral icon tiles instead of coloured dots */
+.activity__icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 9px; background: #f3f4f6; color: #4b5563; }
+.activity__icon .icon { width: 14px; height: 14px; }
+.row-bottom .list > .activity { align-items: center; }
+
+/* evacuation centers: name + status, neutral bar, details */
+.center.center--v2 { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.center--v2 .center__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.center--v2 .center__top .center__name { flex: 1; min-width: 0; }
+.center .center__bar { display: block; width: 100%; height: 8px; margin: 0; border-radius: 99px; background: #eceef1; }
+.center .center__bar > span { background: #1f2937 !important; border-radius: 99px; }
+.center__meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+.center__meta b { color: var(--ink); font-weight: 700; }
+
+@media (max-width: 1100px) {
+  .row-insights { flex-direction: column; }
+  .card--attn { min-width: 0; }
+}
+@media (max-width: 560px) {
+  .bars { gap: 6px; min-height: 140px; }
+}
+/* =====================================================================
+   Road Blockages: the map card is as tall as the side column (form + list),
+   and the list shows one blockage per page with a small pager.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+@media (min-width: 1101px) {
+  .bk { align-items: stretch; }
+  .bk__map { position: static; display: flex; flex-direction: column; }
+  .bk__map .leaflet-host { flex: 1; height: auto; min-height: 420px; }
+}
+.bk__pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; }
+.bk__pager .btn { height: 36px; gap: 4px; padding: 0 14px; }
+.bk__pager .btn:disabled { opacity: .45; cursor: not-allowed; }
+.bk__pager .btn .icon { width: 16px; height: 16px; }
+.bk__pager-info { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* =====================================================================
+   Announcements v2: cleaner form, thumbnail beside the text, tidy cards,
+   filter chips and a Prev / "1 of N" / Next pager (same as Road Blockages).
+   Uses its own .anx-* classes, so older .an__* rules no longer apply here.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.anx { max-width: 1760px; width: 100%; margin: 0 auto; gap: 20px; align-items: flex-start; }
+
+/* ---- Form ---- */
+.anx-form { width: clamp(340px, 30vw, 420px); flex: none; padding: 20px; gap: 18px; }
+.anx-form .sec__sub { margin-top: 3px; }
+.anx-fields { display: flex; flex-direction: column; gap: 16px; }
+.anx-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.anx-lbl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ink); }
+.anx-lbl em { color: var(--danger); font-style: normal; }
+.anx-lbl small { font-size: 11px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.anx-hint { font-size: 11px; line-height: 1.5; color: var(--muted); font-weight: 500; margin: 0; }
+.anx-form textarea.input { height: auto; min-height: 128px; padding: 10px 12px; line-height: 1.55; resize: vertical; }
+.anx-form .input::placeholder { color: #9aa1ad; font-weight: 400; }
+
+/* category segmented control */
+.anx-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.anx-seg__opt { position: relative; display: block; }
+.anx-seg__opt input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.anx-seg__opt > span { display: flex; align-items: center; justify-content: center; gap: 7px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-weight: 600; font-size: 12px; color: var(--ink); transition: background .15s, border-color .15s, color .15s; }
+.anx-seg__opt > span i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.anx-seg__opt:hover > span { background: var(--bg); }
+.anx-seg--alert > span i { background: var(--danger); }
+.anx-seg--advisory > span i { background: var(--blue); }
+.anx-seg--event > span i { background: var(--muted); }
+.anx-seg--alert input:checked + span { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.anx-seg--advisory input:checked + span { background: var(--blue-soft); border-color: var(--blue); color: var(--blue); }
+.anx-seg--event input:checked + span { background: #eceef1; border-color: #8a93a3; color: #3b4150; }
+.anx-seg__opt input:focus-visible + span { box-shadow: 0 0 0 3px var(--danger-soft); border-color: var(--brand); }
+
+/* image picker */
+.anx-drop { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 1.5px dashed #cdd1d9; border-radius: 12px; background: #fafbfc; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.anx-drop[hidden], .anx-pick[hidden] { display: none; }
+.anx-drop:hover, .anx-drop.is-over { border-color: var(--brand); background: #fdf3f5; }
+.anx-drop:focus-visible { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 3px var(--danger-soft); }
+.anx-drop__ico { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--danger-soft); color: var(--brand); }
+.anx-drop b { display: block; font-size: 12px; font-weight: 700; color: var(--ink); }
+.anx-drop small { display: block; margin-top: 2px; font-size: 11px; line-height: 1.45; font-weight: 500; color: var(--muted); }
+.anx-pick { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.anx-pick img { width: 96px; height: 54px; flex: none; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.anx-pick__info { flex: 1; min-width: 0; }
+.anx-pick__info b { display: block; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anx-pick__info small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.anx-pick .btn { height: 30px; padding: 0 10px; }
+
+/* push */
+.anx-push { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fafbfc; }
+.anx-push__row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.anx-push__row b { font-size: 12px; font-weight: 600; }
+.anx-push.is-off .anx-push__row { cursor: not-allowed; opacity: .75; }
+.anx-send { height: 44px; font-size: 13px; }
+.anx-send:disabled { opacity: .6; cursor: progress; }
+.anx-fields .form-error { margin: -4px 0 0; }
+
+/* ---- Feed ---- */
+.anx-feed { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 90px; }
+.anx-bar { display: flex; align-items: center; gap: 12px; }
+.anx-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; flex: 1; min-width: 0; }
+.anx-chips::-webkit-scrollbar { display: none; }
+.anx-chips .chip { flex: none; white-space: nowrap; }
+.anx-count { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.anx-list { display: flex; flex-direction: column; gap: 12px; }
+
+.anx-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.anx-card.has-img { grid-template-columns: 136px minmax(0, 1fr); }
+.anx-thumb { width: 136px; aspect-ratio: 16 / 9; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #eceef1; cursor: zoom-in; align-self: start; }
+.anx-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .25s; }
+.anx-thumb:hover img { transform: scale(1.04); }
+.anx-thumb:focus-visible { outline: 3px solid var(--danger-soft); outline-offset: 2px; }
+.anx-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.anx-meta { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+.anx-meta time { font-size: 11px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.anx-del { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; color: var(--muted); transition: background .15s, color .15s; }
+.anx-del .icon { width: 16px; height: 16px; }
+.anx-del:hover, .anx-del:focus-visible { background: var(--danger-soft); color: var(--danger); outline: 0; }
+.anx-title { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.anx-body { margin: 0; font-size: 12px; line-height: 1.6; color: #3b4150; white-space: pre-wrap; overflow-wrap: anywhere; }
+.anx-body.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.anx-more { align-self: flex-start; padding: 2px 0; border: 0; background: none; color: var(--brand); font: 600 12px var(--font); cursor: pointer; }
+.anx-more[hidden] { display: none; }
+.anx-more:hover { text-decoration: underline; }
+.anx-pager { padding-top: 2px; }
+
+/* lightbox */
+.anx-lb { border: 0; padding: 0; background: transparent; max-width: min(92vw, 960px); max-height: 90vh; overflow: visible; }
+.anx-lb::backdrop { background: rgba(15, 17, 22, .72); }
+.anx-lb img { display: block; max-width: 100%; max-height: 86vh; margin: 0 auto; border-radius: 12px; background: #fff; }
+.anx-lb__x { position: absolute; top: -14px; right: -14px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: var(--ink); box-shadow: 0 4px 14px rgba(0,0,0,.3); z-index: 1; }
+
+/* ---- Responsive ---- */
+@media (max-width: 1100px) {
+  .anx { flex-direction: column; padding: 20px; gap: 16px; }
+  .anx-form { width: 100%; }
+  .anx-feed { width: 100%; }
+}
+@media (max-width: 560px) {
+  .anx { padding: 14px; }
+  .anx-card.has-img { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .anx-thumb { width: 100%; }
+  .anx-count { display: none; }
+}
+
+/* live preview inside the form */
+.anx-prev { padding: 10px; border: 1px dashed #cdd1d9; border-radius: 12px; background: var(--bg); pointer-events: none; user-select: none; }
+.anx-prev .anx-card { padding: 12px; gap: 12px; border-radius: 12px; }
+.anx-prev .anx-card.has-img { grid-template-columns: 88px minmax(0, 1fr); }
+.anx-prev .anx-thumb { width: 88px; cursor: default; }
+.anx-prev .anx-meta { min-height: 22px; }
+.anx-prev .anx-title { font-size: 13px; }
+.anx-prev .is-ph { color: #9aa1ad; font-weight: 500; }
+
+/* =====================================================================
+   Clean white theme: white sidebar, white page, soft borders.
+   Applies to every admin page (they all share this shell).
+   Appended last on purpose. Delete this block to go back to the dark sidebar.
+   ===================================================================== */
+:root {
+  --sidebar-text: #4b5563;
+  --sidebar-label: #9aa1ad;
+  --sidebar-sub: #6b7280;
+  --sidebar-card: #f7f8fa;
+  --hover-soft: #f3f4f6;
+  --brand-soft: rgba(196, 30, 58, .08);
+}
+body, .main { background: #fff; }
+
+/* ---- Sidebar ---- */
+.sidebar { background: #fff; border-right: 1px solid var(--line); }
+.brand__name { color: var(--ink); }
+.brand__sub { color: var(--muted); }
+.nav__label { color: var(--sidebar-label); letter-spacing: .06em; }
+.nav__item { color: var(--sidebar-text); }
+.nav__item:hover,
+.nav__item:not(.is-active):hover { background: var(--hover-soft); color: var(--ink); }
+.nav__item.is-active { background: var(--brand-soft); color: var(--brand); box-shadow: none; font-weight: 700; }
+.nav__item.is-active .icon { color: var(--brand); }
+
+.user { background: var(--sidebar-card); border: 1px solid var(--line); }
+.user__name { color: var(--ink); }
+.user__place { color: var(--muted); }
+.user .logout { color: var(--muted); }
+.user .logout:hover { background: #eceef1; color: var(--ink); }
+
+.sidebar a:focus-visible, .sidebar button:focus-visible, .appbar button:focus-visible { outline-color: var(--brand); }
+
+/* ---- Content surfaces: soft lift instead of a grey page behind them ---- */
+.card, .sec, .panel, .table-card, .subnav, .anx-card { box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+.topbar { box-shadow: none; }
+
+/* ---- Phone / tablet: white app bar and drawer ---- */
+@media (max-width: 1100px) {
+  .has-drawer .appbar { background: #fff; color: var(--ink); border-bottom: 1px solid var(--line); }
+  .has-drawer .appbar .nav-toggle { border-color: var(--line); background: #fff; color: var(--ink); }
+  .has-drawer .appbar .nav-toggle:hover { background: var(--hover-soft); }
+  .appbar .brand__name { color: var(--ink); }
+  .appbar .brand__sub { color: var(--muted); }
+  .has-drawer .nav-close { color: var(--muted); }
+  .has-drawer .nav-close:hover { background: var(--hover-soft); color: var(--ink); }
+  .has-drawer.nav-open .sidebar { box-shadow: 8px 0 30px rgba(16, 24, 40, .16); }
+  .has-drawer .nav-backdrop { background: rgba(16, 24, 40, .35); }
+  .app:not(.has-drawer) .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
+/* =====================================================================
+   Refinement pass: flat, calm and consistent.
+   1. Brand red for actions and the active nav item (same as the original look)
+   2. No gradients, glows or hover "lift"; thin borders instead of shadows
+   3. Two corner radii only: 12px containers, 8px controls
+   4. Larger, darker secondary text
+   5. Status colours that match the status pills
+   6. Glass, used in only three places: sticky top bar, map overlays, dialog backdrops
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+
+/* ---- 1. Colour roles ---- */
+:root {
+  --brand: #c41e3a;                     /* action colour: the original brand red */
+  --accent: #c41e3a;
+  --accent-ink: #a8182f;
+  --brand-soft: rgba(196, 30, 58, .08);
+  --ring: rgba(196, 30, 58, .16);
+  --muted: #5f6877;
+  --sidebar-label: #6b7280;
+  --r-lg: 12px;
+  --r-sm: 8px;
+}
+.btn--primary { background: var(--accent); border-color: var(--accent); box-shadow: none; }
+.btn--primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); filter: none; }
+.card--actions > .btn--primary { box-shadow: none; }
+.nav__badge, .icon-btn .bell-dot { background: var(--danger); }
+.attn__n { background: var(--danger); }
+.attn__row.is-zero .attn__n { background: #f3f4f6; color: var(--muted); }
+
+/* focus rings follow the accent, not red */
+.input:focus, .fld select:focus, .fld textarea:focus,
+.cs__btn:focus-visible, .cs.is-open .cs__btn,
+.anx-seg__opt input:focus-visible + span, .anx-drop:focus-visible { box-shadow: 0 0 0 3px var(--ring); }
+.anx-drop__ico, .tab.is-on em { background: var(--brand-soft); color: var(--accent); }
+.anx-drop:hover, .anx-drop.is-over { background: #fdf3f5; }
+.subnav a.is-on { background: var(--brand-soft); }
+
+/* ---- 2. Flat surfaces, no lift / glow ---- */
+.card, .stats .stat, .sec, .panel, .table-card, .subnav, .anx-card, .an__item { box-shadow: none; border-color: var(--line); }
+.stats .stat:hover, .queue__item:hover { transform: none; box-shadow: none; }
+.queue__item:hover { background: #f9fafb; }
+.btn:active { transform: none; }
+
+/* ---- 3. Two radii ---- */
+.card, .stats .stat, .sec, .panel, .table-card, .subnav, .anx-card, .an__item, .modal, .savebar { border-radius: var(--r-lg); }
+.btn, .input, .search, .icon-btn, .nav__item, .field-search, .fld select, .fld textarea, .queue__item, .user,
+.anx-seg__opt > span, .anx-drop, .anx-pick, .anx-push, .anx-prev, .anx-thumb, .anx-prev .anx-card, .anx-pick img { border-radius: var(--r-sm); }
+
+/* ---- 4. Readable secondary text ---- */
+.nav__label { font-size: 11px; }
+.brand__sub, .user__place { font-size: 12px; }
+.topbar__sub { font-size: 13px; }
+.stat__note, .stat__label { font-size: 13px; }
+.queue__title, .activity__text { font-size: 13px; }
+.queue__meta, .activity__time, .center__count, .center__meta, .legend__item,
+.attn__txt small, .bars__col span, .bars__col b, .split__legend { font-size: 12px; }
+
+/* recent activity: wrap to two lines instead of cutting the sentence off */
+.activity__text { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.4; }
+.row-bottom .list > .activity { align-items: flex-start; }
+.activity__time { padding-top: 1px; }
+
+/* ---- 5. Status colours (same as the pills) ---- */
+.s-new { background: #f59e0b; }
+.s-verified { background: #22a447; }
+.s-dispatched { background: #d32f2f; }
+.s-resolved { background: #94a3b8; }
+.s-rejected { background: #e5e7eb; box-shadow: inset 0 0 0 1px #cbd0d8; }
+
+/* ---- 6. Glass, only where content moves underneath ---- */
+/* sticky top bar */
+.topbar {
+  background: rgba(255, 255, 255, .76);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+  border-bottom: 1px solid rgba(16, 24, 40, .08);
+}
+@media (min-width: 1101px) { .topbar { position: sticky; top: 0; z-index: 60; } }
+
+/* map overlays */
+.leaflet-container .leaflet-bar { border: 1px solid rgba(16, 24, 40, .12) !important; border-radius: var(--r-sm); box-shadow: none; overflow: hidden; background: transparent; }
+.leaflet-container .leaflet-bar a, .leaflet-container .leaflet-bar a:hover {
+  background-color: rgba(255, 255, 255, .72); color: var(--ink); border-bottom: 1px solid rgba(16, 24, 40, .08);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.leaflet-container .leaflet-bar a:hover { background-color: rgba(255, 255, 255, .92); }
+.leaflet-container .leaflet-bar a:last-child { border-bottom: 0; }
+.map__ctrl, .legend-box, .map-legend, .map-note, .map__callout, .leaflet-container .leaflet-control-attribution {
+  background: rgba(255, 255, 255, .74);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border: 1px solid rgba(16, 24, 40, .08); box-shadow: none;
+}
+
+/* dialog / drawer / lightbox backdrops: dim + soft blur. The dialogs themselves stay solid white */
+.modal-backdrop, .drawer-bg, .dp__scrim, .has-drawer .nav-backdrop {
+  background: rgba(16, 24, 40, .36);
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+}
+.anx-lb::backdrop { background: rgba(16, 24, 40, .5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar { background: #fff; }
+  .map__ctrl, .legend-box, .map-legend, .map-note, .map__callout, .leaflet-container .leaflet-control-attribution { background: rgba(255, 255, 255, .95); }
+  .leaflet-container .leaflet-bar a { background-color: #fff; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .topbar, .map__ctrl, .legend-box, .map-legend, .map-note, .map__callout, .leaflet-container .leaflet-control-attribution { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* =====================================================================
+   Search box: black "clear" (x) button instead of the browser's blue one.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; margin-left: 6px; cursor: pointer; opacity: .9;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111111' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+input[type="search"]::-webkit-search-cancel-button:hover { opacity: 1; }
+
+/* =====================================================================
+   Dashboard v3: one grid, one gap (16px), equal-height cards, richer
+   priority queue, quick-action tiles, chart empty state.
+   Pairs with the updated index.html and pages/dashboard.js.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.content { gap: 16px; }
+.stats, .row-map, .row-insights, .row-bottom { gap: 16px; }
+
+/* same header treatment on every card */
+.row-insights .card__header { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+
+/* stat tiles: a zero reads as "calm", not as a missing value */
+.stat.is-zero .stat__value { color: #9aa1ad; }
+
+/* ---- desktop grid ---- */
+@media (min-width: 1201px) {
+  .content { width: 100%; max-width: 1560px; margin-inline: auto; padding: 24px 28px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .row-map { display: grid; grid-template-columns: minmax(0, 1fr) 400px; height: clamp(340px, 42vh, 420px); }
+  .row-map .card--queue { width: auto; min-height: 0; }
+  .card--map { min-height: 0; }
+  .card--map .mini-map { flex: 1; height: auto; min-height: 0; }
+  .queue { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
+  .row-insights { display: grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); }
+  .card--attn { min-width: 0; }
+  .row-bottom { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: none; min-height: 0; }
+  .row-bottom .card { flex: none; }
+  .row-bottom .card--actions { width: auto; }
+}
+/* tablet: keep the stacked layout, just give the bottom row two columns */
+@media (min-width: 761px) and (max-width: 1200px) {
+  .row-bottom { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row-bottom .card--actions { grid-column: 1 / -1; width: auto; }
+}
+
+/* ---- Reports this week: chart absorbs spare height, clear empty state ---- */
+.card--trend .bars { flex: 1; min-height: 132px; position: relative; }
+.bars.is-empty::after {
+  content: attr(data-empty); position: absolute; inset: 0 0 26px; display: grid; place-items: center;
+  font-size: 13px; font-weight: 500; color: var(--muted); pointer-events: none;
+}
+.bars.is-empty .bars__col i { background: #eceef1; }
+
+/* ---- Needs attention: rows share the card height ---- */
+.card--attn .attn { flex: 1; }
+.card--attn .attn__row { flex: 1; padding-block: 8px; }
+
+/* ---- Priority queue ---- */
+.queue__item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.queue__main { flex: 1; min-width: 0; }
+.queue__top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.queue__item .pill { margin-left: 0; flex: none; }
+@media (min-width: 861px) {
+  .queue__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .queue__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* ---- Evacuation centers: totals pinned to the bottom ---- */
+.row-bottom .card .list { flex: 1; }
+.center__sum { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.center__sum[hidden] { display: none; }
+.center__sum b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- Quick actions: 2x2 tiles that fill the card ---- */
+.qa { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(88px, 1fr); gap: 10px; }
+.qa__btn {
+  flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 14px; height: auto; text-align: left; line-height: 1.3; font-size: 13px; font-weight: 700; white-space: normal; border-radius: var(--r-sm);
+}
+.qa__btn .icon { width: 20px; height: 20px; padding: 0; background: none; color: var(--ink); }
+.qa__btn.btn--primary .icon { color: #fff; }
+.qa__btn:not(.btn--primary):hover { border-color: #cfd3da; }
+@media (max-width: 400px) { .qa { grid-template-columns: 1fr; grid-auto-rows: minmax(64px, auto); } }
+
+/* =====================================================================
+   Priority queue, quiet version: no coloured badges. Urgency is a small dot
+   plus text (only Critical = red dot, High = amber dot), status is an outline
+   pill, and a missing location is plain grey text.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.urg { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 0; background: none; border-radius: 0; font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--muted); }
+.urg i { width: 6px; height: 6px; border-radius: 50%; background: transparent; flex: none; }
+.urg--critical, .urg--high { color: var(--ink); }
+.urg--critical i { background: var(--danger); }
+.urg--high i { background: var(--amber); }
+.noloc { color: #7a8393; }
+.queue .pill { background: transparent; border: 1px solid var(--line); color: #4b5563; box-shadow: none; }
+
+/* =====================================================================
+   Announcements: form card and feed card are the same height. The feed is one
+   card (header, filter chips, divided rows, pager pinned to the bottom) and the
+   list keeps the height of the tallest page, so pagination never makes it jump.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.anx { align-items: stretch; }
+
+/* form: Send button pinned to the bottom of the card */
+.anx-fields { flex: 1; }
+.anx-send { margin-top: auto; }
+
+/* feed as a card */
+.anx-feed { background: #fff; border: 1px solid var(--line); border-radius: var(--r-lg); padding: 20px; gap: 0; }
+.anx-bar { flex-direction: column; align-items: stretch; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.anx-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.anx-chips { flex: none; }
+.anx-list { gap: 0; margin-bottom: 14px; }
+.anx-feed > .anx-main { padding-top: 16px; }
+
+/* announcements as divided rows (the preview in the form keeps its boxed look) */
+.anx-list .anx-card { padding: 16px 0; background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.anx-list .anx-card:last-child { border-bottom: 0; }
+.anx-feed > .empty { margin: auto; }
+
+/* pager pinned to the bottom of the card */
+.anx-pager { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* =====================================================================
+   Header alignment: the logo row is exactly as tall as the top bar (72px) and
+   shares its bottom line, and the logo, "MANAGE" label and nav icons share one
+   left edge. Desktop sidebar only. Appended last on purpose. Delete to revert.
+   ===================================================================== */
+@media (min-width: 861px) {
+  .sidebar { padding-top: 0; }
+  .sidebar .brand {
+    flex: none; height: 72px; margin: 0 -16px 16px; padding: 0 28px; gap: 12px; align-items: center;
+    border-bottom: 1px solid rgba(16, 24, 40, .08);
+  }
+  .sidebar .brand__name { line-height: 1.25; }
+  .sidebar .brand__sub { line-height: 1.3; margin-top: 1px; }
+  .sidebar .nav__label { padding-left: 12px; margin-bottom: 2px; }
+}
+
+/* =====================================================================
+   Dashboard: the right-hand column is 400px in every row, so the gutter between
+   cards lines up from the map row down to the bottom row (stat tiles stay 4-up).
+   Also a slimmer, shorter chart bar. Appended last on purpose. Delete to revert.
+   ===================================================================== */
+@media (min-width: 1201px) {
+  .row-map      { grid-template-columns: minmax(0, 1fr) 400px; }
+  .row-insights { grid-template-columns: minmax(0, 1fr) 400px; }
+  .row-bottom   { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 400px; }
+  .card--attn   { min-width: 0; }
+}
+.bars__col i { max-width: 32px; }
+
+/* =====================================================================
+   Sidebar: grouped menu, quiet live counts, status strip (see sidebar.js).
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.nav__label--group { margin-top: 18px; }
+.brand + .nav__label--group { margin-top: 0; }
+.nav__count { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.nav__count[hidden] { display: none; }
+.nav__item.is-active .nav__count { color: var(--brand); }
+
+.side-status { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; padding: 12px 12px 0; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.side-status p { margin: 0; display: flex; align-items: center; gap: 8px; line-height: 1.4; }
+.side-status i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #22a447; }
+.side-status .is-off i { background: #9aa1ad; }
+
+/* Priority queue: every urgency gets a dot so the labels line up (Critical red, High amber, Medium slate, Low light grey) */
+.urg--medium i { background: #8a97ab; }
+.urg--low i { background: #cbd2dc; }
+.urg--medium { color: #3b4150; }
+
+/* =====================================================================
+   Reports: the side panel scrolls on its own (the page no longer gets as long
+   as the history), keeps its header in view, and long timelines collapse.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+@media (min-width: 1101px) {
+  .rp__body .panel {
+    align-self: flex-start; position: sticky; top: 88px;
+    max-height: calc(100vh - 104px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  }
+  .rp__body .panel > .panel__head {
+    position: sticky; top: 0; z-index: 2; margin: -18px -18px 0; padding: 14px 18px;
+    background: #fff; border-bottom: 1px solid var(--line);
+    box-shadow: 0 -18px 0 #fff;        /* paints over the panel's top padding so nothing scrolls into view above the header */
+  }
+  .rp__body .panel > .panel__head + * { margin-top: 6px; }
+}
+.timeline__item[hidden] { display: none; }
+.tl-more { align-self: flex-start; padding: 2px 0; border: 0; background: none; color: var(--ink); font: 600 12px var(--font); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.tl-more:hover { color: var(--brand); }
+
+/* Report panel: quiet "on site" note shown instead of the Mark on site button */
+.act__done { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fafbfc; font-size: 12px; font-weight: 600; color: var(--muted); }
+.act__done .icon { width: 16px; height: 16px; color: #22a447; flex: none; }
+.panel__actions .act:disabled { opacity: .55; cursor: progress; }
+
+/* =====================================================================
+   Reports: paged list (Prev / "1 of N" / Next) and a list card that is exactly
+   as tall as the details panel. On desktop both fill the screen and scroll
+   inside themselves; the pager stays pinned to the bottom of the list card.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.rp__pager { padding: 12px 14px; border-top: 1px solid var(--line); }
+.rp__pager[hidden] { display: none; }
+.rp__scroll { min-width: 0; }
+@media (min-width: 1101px) {
+  .rp { flex: none; height: max(560px, calc(100vh - 72px)); }
+  .rp__body { flex: 1; min-height: 0; align-items: stretch; }
+  .rp__body .table-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .rp__scroll { flex: 1; min-height: 0; overflow: auto; }
+  .rp__pager { flex: none; margin-top: 0; }
+  .rp .tbl thead th { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: inset 0 -1px 0 var(--line); }
+  /* details panel: same height as the list card, scrolls inside */
+  .rp__body .panel { position: static; align-self: stretch; max-height: none; height: auto; min-height: 0; overflow-y: auto; }
+}
+
+/* Reports: empty-state messages centred in their cards (list card and details panel) */
+.rp__scroll { display: flex; flex-direction: column; }
+.rp__scroll > .tbl { flex: none; }
+#rpEmpty { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+#rpEmpty:empty { padding: 0; }
+#rpEmpty .empty { text-align: center; padding: 0; }
+#rpEmpty .empty .btn { margin-inline: auto; }
+.rp__body .panel > .empty:only-child { margin: auto; text-align: center; padding: 24px; }
+/* Incident Map: empty-state message centred in the middle of the details panel.
+   Appended last on purpose. Delete this block to revert. */
+.im .panel > .empty:only-child { margin: auto; padding: 24px; text-align: center; }
+
+/* Incident Map filter chips: colour dot per category (matches the legend), neutral dark
+   active state (red stays reserved for "Incident"), quiet counts.
+   Appended last on purpose. Delete this block to revert. */
+.im__bar .chip { display: inline-flex; align-items: center; gap: 6px; }
+.im__bar .chip span[data-n] { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.im__bar .chip.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.im__bar .chip.is-on span[data-n] { color: rgba(255, 255, 255, .65); }
+
+/* Incident Map toolbar: one row. Chips on the left (they scroll sideways when space runs out),
+   Status / All time / Layers on the right after a thin divider. Only on very narrow cards
+   (under 480px) does it fall back to the stacked layout so the filters stay usable.
+   Appended last on purpose. Delete this block to revert. */
+@container (min-width: 480px) {
+  .im__bar { flex-wrap: nowrap; gap: 8px; }
+  .im__bar .chips, .im__bar .chips-wrap, .im__bar .chip-strip {
+    flex: 1 1 0; min-width: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none; scroll-behavior: smooth; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
+            mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
+    padding-right: 16px;
+  }
+  .im__bar .chips::-webkit-scrollbar, .im__bar .chips-wrap::-webkit-scrollbar, .im__bar .chip-strip::-webkit-scrollbar { display: none; }
+  .im__bar .chip { flex: none; white-space: nowrap; }
+  .im__bar #mapStamp { display: none; }
+  .im__bar .grow, .im__bar .is-spacer { display: none; }  /* the chips fill the free space instead */
+  .im__bar .im__tools { flex: none; margin-left: 0; }
+  .im__bar .im__tools::before { content: ""; width: 1px; height: 20px; background: var(--line); margin-right: 4px; }
+}
+
+/* Reports filter chips: same treatment as the Incident Map. Colour dot per status (matches the
+   status pills in the table), neutral dark active state, quiet counts, and a thin divider before
+   the filter controls. The chip group scrolls sideways if space runs out.
+   Appended last on purpose. Delete this block to revert. */
+.rp__bar .chip { display: inline-flex; align-items: center; gap: 6px; }
+.rp__bar .chip span[data-n] { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rp__bar .chip.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.rp__bar .chip.is-on span[data-n] { color: rgba(255, 255, 255, .65); }
+.rp__bar .bar-div { flex: none; width: 1px; height: 20px; background: var(--line); }
+@media (min-width: 861px) {
+  .rp__bar { flex-wrap: nowrap; }
+  .rp__bar .chips, .rp__bar .chip-strip {
+    flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  }
+  .rp__bar .chips::-webkit-scrollbar, .rp__bar .chip-strip::-webkit-scrollbar { display: none; }
+  .rp__bar .chip { flex: none; white-space: nowrap; }
+  .rp__bar > .sel, .rp__bar > .cs--bar, .rp__bar > .btn { flex: none; }
+}
+@media (max-width: 860px) { .rp__bar .bar-div { display: none; } }
+
+/* Reports: details panel header lines up with the table's header row, at any scroll position.
+   The panel has no top padding on desktop, so the sticky header sits flush with the card's top edge
+   and is exactly as tall as the table header. Appended last on purpose. Delete this block to revert. */
+@media (min-width: 1101px) {
+  .rp__body .panel { padding-top: 0; }
+  .rp__body .panel > .panel__head {
+    top: 0; margin: 0 -18px; flex: none; box-sizing: border-box; height: 39px;
+    padding: 0 18px; align-items: center; box-shadow: none;
+  }
+}
+
+/* Notifications: entries with nowhere to go are plain text, not links. */
+div.dd__item { cursor: default; }
+
+/* =====================================================================
+   Database: every tab's table sits in a card that is as tall as the page, with the
+   Prev / "1 of N" / Next pager pinned to the bottom (same as Reports). Rows per page
+   follow the card height. On smaller screens the card just grows with its rows.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.db__card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.db__card[hidden] { display: none; }
+.db__scroll { flex: 1; min-height: 0; min-width: 0; overflow: auto; display: flex; flex-direction: column; }
+.db__scroll > .tbl { flex: none; }
+.db__scroll > [id$="Empty"] { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.db__scroll > [id$="Empty"]:empty { padding: 0; }
+.db__scroll > [id$="Empty"] .empty { padding: 0; text-align: center; }
+.db__card > .rp__pager { flex: none; margin-top: 0; }
+@media (min-width: 1101px) {
+  .db { flex: none; height: max(560px, calc(100vh - 72px)); min-height: 0; }
+  .db > section:not([hidden]) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .db > section:not([hidden]) > .db__card, #tab-zones > .sec > .db__card { flex: 1; }
+  #tab-zones > .sec { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 0 !important; }
+  .db .tbl thead th { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: inset 0 -1px 0 var(--line); }
+}
+
+/* Database: masked contact number and its Show / Reveal link get breathing room. */
+.db [data-num] { margin-right: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.db .link-btn[data-reveal] { padding: 3px 8px; margin: -3px 0; border-radius: 6px; font-weight: 600; vertical-align: baseline; transition: background .15s; }
+.db .link-btn[data-reveal]:hover { background: #fdeef0; }
+
+/* Cards: a slightly stronger outline (and a hairline shadow) so they stand out from the page.
+   Inner dividers, table lines and inputs keep the lighter --line colour.
+   Appended last on purpose. Delete this block to revert. */
+:root { --card-line: #d3d7df; }
+.card, .stats .stat, .sec, .panel, .table-card, .subnav, .anx-card, .an__item, .anx-feed, .row-map .card {
+  border-color: var(--card-line);
+}
+.card, .stats .stat, .sec, .panel, .table-card, .subnav, .anx-feed {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .06);
+}
+
+/* Dashboard cards: an earlier rule gave them an extra-light border (#eceef1) that beat the general card rule
+   above, so they did not pick up the stronger outline. Same colour and hairline shadow as the other cards. */
+.stats .stat, .row-map .card, .row-insights .card, .row-bottom .card { border-color: var(--card-line); box-shadow: 0 1px 2px rgba(16, 24, 40, .06); }
+.qa__btn:not(.btn--primary) { border-color: var(--card-line); }
+
+/* Sidebar and top bar: same stronger outline as the cards. */
+.sidebar { border-right-color: var(--card-line); }
+.topbar { border-bottom-color: var(--card-line); }
+.side-status { border-top-color: var(--card-line); }
+.user, .icon-btn { border-color: var(--card-line); }
+
+/* Sidebar brand block: the divider under the logo uses the same line colour as the top bar, so the two meet as one line. */
+@media (min-width: 861px) { .sidebar .brand { border-bottom-color: var(--card-line); } }
+
+/* Login card: same stronger outline and hairline shadow as the other cards. */
+.login-page .login-card { border-color: var(--card-line); box-shadow: 0 1px 2px rgba(16, 24, 40, .06); }
+
+
+/* Database > Residents has 8 columns, so it needs more room than the other tabs before it can stay a table.
+   Below 900px of card width (tablets, small laptops) each resident becomes a stacked row instead of a clipped table.
+   Appended last on purpose. Delete this block to revert. */
+@container (max-width: 900px) {
+  #tab-residents .tbl thead { display: none; }
+  #tab-residents .tbl, #tab-residents .tbl tbody { display: block; width: 100%; }
+  #tab-residents .tbl tbody tr { display: block; position: relative; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  #tab-residents .tbl tbody tr:last-child { border-bottom: 0; }
+  #tab-residents .tbl td {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    height: auto; padding: 3px 0; border: 0; white-space: normal; text-align: right; overflow-wrap: anywhere;
+  }
+  #tab-residents .tbl td::before {
+    content: attr(data-label); flex: none; text-align: left; color: var(--muted);
+    font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  }
+  #tab-residents .tbl td:first-child { justify-content: flex-start; align-items: center; padding: 0 36px 8px 0; text-align: left; }
+  #tab-residents .tbl td:first-child::before { display: none; }
+  #tab-residents .tbl td:not([data-label]):not(:first-child):not([colspan]) { position: absolute; top: 10px; right: 10px; padding: 0; }
+  #tab-residents .tbl td:not([data-label])::before { display: none; }
+  #tab-residents .tbl .empty-row td, #tab-residents .tbl td[colspan] { display: block; text-align: center; padding: 28px 0; position: static; }
+  #tab-residents .tbl .empty-row td::before, #tab-residents .tbl td[colspan]::before { display: none; }
+}
+@container (max-width: 900px) {
+  /* stacked rows: the masked number and its Show link sit together on the right */
+  #tab-residents .tbl td [data-num] { margin-left: auto; }
+}
+
+/* Database > Evacuation Centers: the occupancy bar had width:100% (a Dashboard rule), which pushed "75 / 350"
+   into the Status column and over the pill. Fixed-width bar + count that never wraps or overlaps. */
+.db td .center { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.db td .center .center__bar { flex: none; width: 88px; margin: 0; }
+.db td .center .center__count { flex: none; white-space: nowrap; }
