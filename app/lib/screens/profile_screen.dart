@@ -57,8 +57,12 @@ Color statusColor(String s) => switch (s) {
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab(
-      {super.key, required this.reloadToken, this.openReportsRequest = 0});
+      {super.key, required this.reloadToken, this.openReportsRequest = 0, this.openReportId});
   final int reloadToken;
+
+  /// Report to open straight away (from a tapped notification), used together
+  /// with [openReportsRequest].
+  final String? openReportId;
 
   /// Increases each time something asks to jump straight to "My Reports".
   final int openReportsRequest;
@@ -70,12 +74,25 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   bool _showReports = false;
   bool _offline = false;
+  String? _pendingReportId;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openReportId != null) {
+      _showReports = true;
+      _pendingReportId = widget.openReportId;
+    }
+  }
 
   @override
   void didUpdateWidget(covariant ProfileTab old) {
     super.didUpdateWidget(old);
     if (widget.openReportsRequest != old.openReportsRequest) {
-      setState(() => _showReports = true);
+      setState(() {
+        _showReports = true;
+        _pendingReportId = widget.openReportId;
+      });
     }
   }
 
@@ -122,7 +139,15 @@ class _ProfileTabState extends State<ProfileTab> {
   @override
   Widget build(BuildContext context) {
     if (_showReports) {
-      return _MyReports(onBack: () => setState(() => _showReports = false));
+      return _MyReports(
+        onBack: () => setState(() {
+          _showReports = false;
+          _pendingReportId = null;
+        }),
+        openReportId: _pendingReportId,
+        openToken: widget.openReportsRequest,
+        onOpened: () => _pendingReportId = null,
+      );
     }
     final u = Session.user;
     return AsyncBody<List<Report>>(
@@ -430,8 +455,13 @@ class _MenuItem extends StatelessWidget {
 }
 
 class _MyReports extends StatefulWidget {
-  const _MyReports({required this.onBack});
+  const _MyReports({required this.onBack, this.openReportId, this.openToken = 0, this.onOpened});
   final VoidCallback onBack;
+
+  /// Report whose details open as soon as the list has loaded.
+  final String? openReportId;
+  final int openToken;
+  final VoidCallback? onOpened;
 
   @override
   State<_MyReports> createState() => _MyReportsState();
@@ -441,6 +471,21 @@ class _MyReportsState extends State<_MyReports> {
   /// Selected status group. null = all.
   /// Keys: NEW, VERIFIED, DISPATCHED, RESOLVED, OTHER (not accepted).
   String? _filter;
+  String? _pendingId;
+
+  @override
+  void initState() {
+    super.initState();
+    _pendingId = widget.openReportId;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MyReports old) {
+    super.didUpdateWidget(old);
+    if (widget.openToken != old.openToken && widget.openReportId != null) {
+      _pendingId = widget.openReportId;
+    }
+  }
 
   static const _knownStatuses = {'NEW', 'VERIFIED', 'DISPATCHED', 'RESOLVED'};
 
@@ -784,6 +829,19 @@ class _MyReportsState extends State<_MyReports> {
         }
       },
       builder: (context, reports, refresh) {
+        // Open the report a notification pointed at, once the list is loaded.
+        final pid = _pendingId;
+        if (pid != null) {
+          _pendingId = null;
+          widget.onOpened?.call();
+          final match = reports.where((r) => r.id == pid);
+          if (match.isNotEmpty) {
+            final r = match.first;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _details(this.context, r);
+            });
+          }
+        }
         final shown = reports
             .where((r) => _filter == null || _group(r.status) == _filter)
             .toList();
