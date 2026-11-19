@@ -1,12 +1,13 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../location.dart';
-import '../services/session.dart';
 import '../services/api.dart';
+import '../services/session.dart';
 import '../theme.dart';
 
 // Same neutral surface colours as the other restyled screens.
@@ -78,25 +79,17 @@ class _SosSheetState extends State<_SosSheet> with SingleTickerProviderStateMixi
     }
   }
 
-  // Phase 2 (SEC-01): Trigger the backend API before dialing
   void _connect() {
     _timer?.cancel();
     setState(() {
       _stage = _Stage.connecting;
       _left = 4;
     });
-    
-    // Send the SOS to the backend immediately
+
+    // Submit the SOS in the background so the emergency call countdown
+    // is not delayed if the server is slow or unavailable.
     if (_where != null) {
-      try {
-        Api.submitSos({
-          'lat': _where!.lat,
-          'lng': _where!.lng,
-          'clientId': const Uuid().v4(),
-        });
-      } catch (_) {
-        // Silently fail if offline or server is unreachable; dialer still works
-      }
+      unawaited(_submitSos());
     }
 
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -110,13 +103,27 @@ class _SosSheetState extends State<_SosSheet> with SingleTickerProviderStateMixi
     });
   }
 
+  Future<void> _submitSos() async {
+    final location = _where;
+    if (location == null) return;
+
+    try {
+      await Api.submitSos({
+        'lat': location.lat,
+        'lng': location.lng,
+        'clientId': const Uuid().v4(),
+      });
+    } catch (e) {
+      debugPrint('Failed to submit SOS: $e');
+      // Do not interrupt the emergency call if the API request fails.
+    }
+  }
+
   Future<void> _dial(String number) async {
     bool ok = false;
     try {
       ok = await launchUrl(Uri(scheme: 'tel', path: number));
-    } catch (e) {
-      debugPrint('Failed to dial number: $e');
-    }
+    } catch (_) {}
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop();
