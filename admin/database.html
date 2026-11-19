@@ -76,25 +76,27 @@
           <button class="btn btn--primary btn--sm" id="resAdd"><svg class="icon "><use href="#i-plus"/></svg>Add resident</button></div>
         <div id="resetPanel" class="table-card" style="margin-top:14px" hidden></div>
         <div class="notice" style="margin-top:14px"><svg class="icon "><use href="#i-lock"/></svg>Contact numbers are masked. Revealing or exporting personal data is recorded in the activity log. Handle in line with the Data Privacy Act of 2012.</div>
-        <div class="table-card" style="margin-top:14px"><table class="tbl"><thead><tr><th>Resident</th><th>Zone / Purok</th><th>Contact</th><th>Household</th><th>Vulnerability</th><th>Reports</th><th>Registered</th><th style="width:56px"></th></tr></thead><tbody id="resBody"></tbody></table><div id="resEmpty"></div></div>
-        <div class="pager" style="margin-top:14px"><span id="resShown"></span><div class="pager__btns" id="resPager"></div></div>
+        <div class="table-card db__card" style="margin-top:14px"><div class="db__scroll" id="resScroll"><table class="tbl"><thead><tr><th>Resident</th><th>Zone / Purok</th><th>Contact</th><th>Household</th><th>Vulnerability</th><th>Reports</th><th>Registered</th><th style="width:56px"></th></tr></thead><tbody id="resBody"></tbody></table><div id="resEmpty"></div></div>
+          <nav class="bk__pager rp__pager" id="resPager" aria-label="Resident pages"></nav></div>
       </section>
 
       <section id="tab-responders" hidden>
         <div class="db__bar"><label class="field-search"><svg class="icon "><use href="#i-search"/></svg><input id="rspQ" type="search" placeholder="Search by name, team or contact"></label><span class="grow"></span>
           <button class="btn btn--sm" id="teamsBtn" type="button">Manage teams</button><button class="btn btn--primary btn--sm" id="rspAdd"><svg class="icon "><use href="#i-plus"/></svg>Add responder</button></div>
-        <div class="table-card" style="margin-top:14px"><table class="tbl"><thead><tr><th>Responder</th><th>Team</th><th>Role</th><th>Availability</th><th>Contact</th><th style="width:80px"></th></tr></thead><tbody id="rspBody"></tbody></table><div id="rspEmpty"></div></div>
+        <div class="table-card db__card" style="margin-top:14px"><div class="db__scroll" id="rspScroll"><table class="tbl"><thead><tr><th>Responder</th><th>Team</th><th>Role</th><th>Availability</th><th>Contact</th><th style="width:80px"></th></tr></thead><tbody id="rspBody"></tbody></table><div id="rspEmpty"></div></div>
+          <nav class="bk__pager rp__pager" id="rspPager" aria-label="Responder pages"></nav></div>
       </section>
 
       <section id="tab-centers" hidden>
         <div class="db__bar"><span class="grow"></span><button class="btn btn--primary btn--sm" id="cenAdd"><svg class="icon "><use href="#i-plus"/></svg>Add evacuation center</button></div>
-        <div class="table-card" style="margin-top:14px"><table class="tbl"><thead><tr><th>Center</th><th>Occupancy</th><th>Status</th><th>Location</th><th style="width:80px"></th></tr></thead><tbody id="cenBody"></tbody></table><div id="cenEmpty"></div></div>
+        <div class="table-card db__card" style="margin-top:14px"><div class="db__scroll" id="cenScroll"><table class="tbl"><thead><tr><th>Center</th><th>Occupancy</th><th>Status</th><th>Location</th><th style="width:80px"></th></tr></thead><tbody id="cenBody"></tbody></table><div id="cenEmpty"></div></div>
+          <nav class="bk__pager rp__pager" id="cenPager" aria-label="Center pages"></nav></div>
       </section>
 
       <section id="tab-zones" hidden>
         <div class="sec" style="margin-top:2px"><div><h2 class="sec__title">Zones / Puroks</h2><p class="sec__sub">Residents choose one of these when they sign up. If you add none, residents type their zone themselves.</p></div>
           <div class="zone-list" id="zoneList"></div>
-          <div class="table-card" id="zoneTable" style="margin:14px 0"></div>
+          <div class="table-card db__card" id="zoneTable" style="margin:14px 0" hidden></div>
           <form class="inline-add" id="zoneForm"><input class="input" id="zoneIn" placeholder="e.g. Purok 1" maxlength="40"><button class="btn btn--primary btn--fit" type="submit"><svg class="icon "><use href="#i-plus"/></svg>Add</button></form></div>
       </section>
     </main>
@@ -102,5 +104,6 @@
 </div>
 <script src="app.js"></script>
 <script src="pages/database.js"></script>
+<script src="sidebar.js"></script>
 </body>
 </html>
