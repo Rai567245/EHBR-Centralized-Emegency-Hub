@@ -25,18 +25,27 @@ const RP = (() => {
     RESOLVED: [['NEW', 'Reopen', '', 'i-clock']],
     REJECTED: [['NEW', 'Reopen', '', 'i-clock']],
   };
+  // "On site" only counts for the CURRENT dispatch: if a report is reopened and dispatched again, it starts over.
+  const isOnSite = (r) => {
+    if (!r.onSiteAt) return false;
+    const last = (r.timeline || []).filter((x) => x.text.startsWith('Responders dispatched')).reduce((m, x) => Math.max(m, new Date(x.at).getTime()), 0);
+    return !last || new Date(r.onSiteAt).getTime() >= last;
+  };
   const where = (r) => r.locationText || (r.lat != null ? `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}` : '—');
 
   function progress(r) {
     if (!['VERIFIED', 'DISPATCHED', 'RESOLVED'].includes(r.status)) return '';
     const stamp = (txt) => { const t = (r.timeline || []).find((x) => x.text.startsWith(txt)); return t ? t.at : null; };
-    const steps = [['Verified', stamp('Verified')], ['Dispatched', stamp('Responders dispatched')], ['On site', r.onSiteAt || null], ['Resolved', stamp('Marked resolved')]];
+    const steps = [['Verified', stamp('Verified')], ['Dispatched', stamp('Responders dispatched')], ['On site', isOnSite(r) ? r.onSiteAt : null], ['Resolved', stamp('Marked resolved')]];
     return `<p class="eyebrow">Progress</p><ol class="steps">${steps.map(([n, at]) => `<li class="${at ? 'is-done' : ''}"><i></i><b>${n}</b><span>${at ? esc(ago(at)) : ''}</span></li>`).join('')}</ol>`;
   }
   function render(r) {
     const chev = '<svg class="icon act__chev"><use href="#i-chev-r"/></svg>';
-    const acts = (ACTIONS[r.status] || []).map(([s, label, cls, ic]) =>
-      `<button class="btn act ${cls}" data-act="${s}">${ico(ic)}<span>${label}</span>${chev}</button>`).join('');
+    const onSite = r.status === 'DISPATCHED' && isOnSite(r);
+    const acts = (ACTIONS[r.status] || []).filter(([s]) => !(onSite && s === '@onsite'))
+      .map(([s, label, cls, ic]) => [s, label, onSite && s === 'RESOLVED' ? 'btn--primary' : cls, ic])
+      .map(([s, label, cls, ic]) => `<button class="btn act ${cls}" data-act="${s}">${ico(ic)}<span>${label}</span>${chev}</button>`).join('');
+    const onSiteNote = onSite ? `<p class="act__done">${ico('i-check')}Responders on site · ${esc(ago(r.onSiteAt))}</p>` : '';
     return `
       <div class="panel__head"><span>Report #${esc(r.id)}</span><span class="pill pill--${SC[r.status]} pill--sm pill--caps">${esc(r.status)}</span></div>
       <h2 class="panel__title">${esc(r.type)}</h2>
@@ -60,7 +69,7 @@ const RP = (() => {
         : `<input class="input" data-assign value="${esc(r.assignedTo)}" placeholder="e.g. Fire team, BDRRM (add teams in Database → Responders)" maxlength="60" style="flex:1;width:auto">`}<button class="btn btn--fit" data-save-assign>Save</button></div>
       <p class="eyebrow">Timeline</p>
       <div class="timeline">${r.timeline.map((t) => `<div class="timeline__item"><i class="dot dot--sm dot--gray"></i>${esc(t.text)}<time>${esc(ago(t.at))}</time></div>`).join('')}</div>
-      <div class="panel__actions"><p class="eyebrow">Actions</p>${acts}<button class="btn act" data-call>${ico('i-phone')}<span>Call reporter</span>${chev}</button></div>`;
+      <div class="panel__actions"><p class="eyebrow">Actions</p>${onSiteNote}${acts}<button class="btn act" data-call>${ico('i-phone')}<span>Call reporter</span>${chev}</button></div>`;
   }
 
   function bind(panel, r, onChange) {
@@ -75,9 +84,13 @@ const RP = (() => {
         const img = document.createElement('img'); img.src = url; img.alt = 'Photo attached to report ' + r.id; a.appendChild(img); ph.appendChild(a);
       } catch { /* photo just doesn't show */ }
     });
+    let busy = false;
+    const lock = (on) => panel.querySelectorAll('[data-act],[data-save-assign]').forEach((b) => { b.disabled = on; });
     const patch = async (body, okMsg) => {
+      if (busy) return; busy = true; lock(true);
       try { const upd = await api('/admin/reports/' + encodeURIComponent(r.id), { method: 'PATCH', body }); toast(okMsg, 'ok'); onChange(upd); }
       catch (e) { fail(e); }
+      finally { busy = false; lock(false); }
     };
     const opts = (arr) => arr.map((x) => (typeof x === 'string' ? x : { value: x[0], label: x[0] }));
     panel.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
