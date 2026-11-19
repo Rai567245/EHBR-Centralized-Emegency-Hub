@@ -391,7 +391,26 @@ route('GET', '/api/config', null, () => ({
   contacts: db.settings.contacts.filter((c) => c.show), reportTypes: REPORT_TYPES,
   emailReset: mailer.enabled(),
 }));
-route('GET', '/api/announcements', null, () => db.announcements.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+// Announcement pictures: stored as files, handed out as full URLs (the phone needs an absolute address).
+const ANN_IMG_MAX = 2 * 1024 * 1024;
+const ANN_IMG_TYPES = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+function publicBase(req) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
+  const proto = (TRUST_PROXY && String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim()) || (req.socket.encrypted ? 'https' : 'http');
+  return `${proto}://${req.headers.host}`;
+}
+const withImageUrl = (a, base) => { const { image, ...rest } = a; return { ...rest, imageUrl: image ? `${base}/api/announcement-images/${image}` : '' }; };
+route('GET', '/api/announcements', null, ({ req }) => {
+  const base = publicBase(req);
+  return db.announcements.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => withImageUrl(a, base));
+});
+route('GET', '/api/announcement-images/:name', null, ({ params }) => {
+  const m = /^ann-[0-9a-f-]{36}\.(jpg|png|webp)$/.exec(params.name);
+  const a = m && db.announcements.find((x) => x.image === params.name);
+  if (!a) throw new HttpError(404, 'Not found');
+  let buf; try { buf = fs.readFileSync(path.join(UPLOAD_DIR, params.name)); } catch { throw new HttpError(404, 'Not found'); }
+  return { __raw: buf, type: ANN_IMG_TYPES[m[1]] };
+});
 route('GET', '/api/centers', null, () => db.centers);
 
 route('POST', '/api/auth/register', null, async ({ body, ip }) => {
@@ -632,10 +651,10 @@ route('POST', '/api/sos', 'user', async ({ body, user }) => {
   };
 
   db.reports.push(r);
-  log(`🚨 SOS Emergency triggered by ${fullName(user)} (ID: ${r.id})`, 'report');
+  log(`SOS Emergency triggered by ${fullName(user)} (ID: ${r.id})`, 'report');
   
   // Instantly alert admins in the console
-  notify({ kind: 'alert', category: 'alert', title: `🚨 SOS: ${fullName(user)}`, body: `Immediate assistance required!`, refId: r.id });
+  notify({ kind: 'alert', category: 'alert', title: `SOS: ${fullName(user)}`, body: `Immediate assistance required!`, refId: r.id });
   
   await save();
   return r;
@@ -1024,23 +1043,38 @@ route('DELETE', '/api/admin/residents/:id', 'admin', ({ params, user }) => {
   return { ok: true };
 });
 
-route('POST', '/api/admin/announcements', 'admin', ({ body, user }) => {
+route('POST', '/api/admin/announcements', 'admin', ({ req, body, user }) => {
   limit('announcement', user.id);
   const category = ['alert', 'advisory', 'event'].includes(body.category) ? body.category : null;
   const title = str(body.title, 100), text = str(body.body, 2000);
   if (!category) throw bad('Choose a category');
   if (!title || !text) throw bad('Title and message are required');
   const a = { id: newId(), category, title, body: text, createdAt: nowIso(), author: fullName(user) };
+  // Optional picture (the admin page shrinks it to a JPEG first). Only real JPEG / PNG / WebP files are kept.
+  if (typeof body.image === 'string' && body.image) {
+    const buf = Buffer.from(body.image.replace(/^data:[^,]*,/, ''), 'base64');
+    if (buf.length < 100 || buf.length > ANN_IMG_MAX) throw bad('The image must be under 2 MB');
+    const jpg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const png = buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const webp = buf.slice(0, 4).toString('latin1') === 'RIFF' && buf.slice(8, 12).toString('latin1') === 'WEBP';
+    if (!jpg && !png && !webp) throw bad('The image must be a JPEG, PNG or WebP file');
+    const name = `ann-${a.id}.${jpg ? 'jpg' : png ? 'png' : 'webp'}`;
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+    a.image = name;
+  }
   db.announcements.push(a);
   log(`Announcement sent: ${title}`, 'announcement');
   notify({ kind: 'announcement', category, title, body: text, refId: a.id, sendPush: body.push !== false });
   save();
-  return a;
-});
+  return withImageUrl(a, publicBase(req));
+}, { photoBody: true });
 route('DELETE', '/api/admin/announcements/:id', 'admin', ({ params }) => {
   const i = db.announcements.findIndex((a) => a.id === params.id);
   if (i < 0) throw new HttpError(404, 'Not found');
-  db.announcements.splice(i, 1); save(); return { ok: true };
+  const [gone] = db.announcements.splice(i, 1);
+  if (gone.image) { try { fs.unlinkSync(path.join(UPLOAD_DIR, gone.image)); } catch { /* already gone */ } }
+  save(); return { ok: true };
 });
 
 function cleanCenter(b, existing = {}) {
