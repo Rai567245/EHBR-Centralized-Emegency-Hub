@@ -68,9 +68,9 @@
       <section class="card im__map">
         <div class="im__bar"><div class="chips" id="mapChips">
           <button class="chip is-on" data-f="all">All <span data-n="all">0</span></button>
-          <button class="chip" data-f="incident">Incidents <span data-n="incident">0</span></button>
-          <button class="chip" data-f="hazard">Hazards <span data-n="hazard">0</span></button>
-          <button class="chip" data-f="center">Evacuation <span data-n="center">0</span></button></div>
+          <button class="chip" data-f="incident"><i class="dot dot--red dot--sm"></i>Incidents <span data-n="incident">0</span></button>
+          <button class="chip" data-f="hazard"><i class="dot dot--amber dot--sm"></i>Hazards <span data-n="hazard">0</span></button>
+          <button class="chip" data-f="center"><i class="dot dot--green dot--sm"></i>Evacuation <span data-n="center">0</span></button></div>
           <span class="grow"></span><span class="muted" id="mapStamp" style="font-size:11px"></span>
           <div class="im__tools"><select class="sel" id="mStatus" aria-label="Status"><option value="active">Status: Active</option><option value="all">Status: All</option><option value="NEW">New</option><option value="VERIFIED">Verified</option><option value="DISPATCHED">Dispatched</option><option value="RESOLVED">Resolved</option></select>
             <button class="btn btn--sm" id="mRange" type="button">All time</button><button class="btn btn--sm" id="mLayers" type="button"><svg class="icon "><use href="#i-sliders"/></svg>Layers</button>
@@ -88,5 +88,6 @@
 <script src="app.js"></script>
 <script src="reportpanel.js"></script>
 <script src="pages/incident-map.js"></script>
+<script src="sidebar.js"></script>
 </body>
 </html>
