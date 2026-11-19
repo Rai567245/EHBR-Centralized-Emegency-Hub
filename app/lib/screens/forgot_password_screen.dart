@@ -73,7 +73,8 @@ class _ForgotPasswordScreenState
 
   bool get _email => Session.config.emailReset;
 
-  bool get _validContact => _contact.text.trim().length >= 7;
+  bool get _validContact =>
+      RegExp(r'^09\d{9}$').hasMatch(_contact.text.trim());
 
   /// Reset codes are always 6 digits.
   static const int _codeLen = 6;
@@ -888,14 +889,12 @@ class _ForgotPasswordScreenState
 
         _fieldLabel('Registered contact number'),
 
-     TextFormField(
+        TextFormField(
           controller: _contact,
           keyboardType: TextInputType.phone,
           style: _inputText,
           cursorColor: EhbrColors.ink,
-          // Real-time validation toggle
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          // Block letters/symbols and limit to 11 digits
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
             LengthLimitingTextInputFormatter(11),
@@ -904,12 +903,17 @@ class _ForgotPasswordScreenState
             hint: 'Enter your contact number',
             icon: Icons.phone_outlined,
           ),
-          // Smart real-time indicator
-          validator: (v) {
-            final text = v ?? '';
-            if (text.isEmpty) return 'Enter your contact number';
-            if (!text.startsWith('09')) return 'Must start with 09 (e.g., 0912...)';
-            if (text.length < 11) return 'Must be exactly 11 digits';
+          validator: (value) {
+            final contact = (value ?? '').trim();
+            if (contact.isEmpty) {
+              return 'Enter your contact number';
+            }
+            if (!contact.startsWith('09')) {
+              return 'Must start with 09 (e.g., 0912...)';
+            }
+            if (contact.length != 11) {
+              return 'Must be exactly 11 digits';
+            }
             return null;
           },
         ),
