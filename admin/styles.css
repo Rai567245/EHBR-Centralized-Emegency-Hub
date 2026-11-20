@@ -2849,3 +2849,18 @@ div.dd__item { cursor: default; }
 .db td .center { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .db td .center .center__bar { flex: none; width: 88px; margin: 0; }
 .db td .center .center__count { flex: none; white-space: nowrap; }
+/* =====================================================================
+   System messages (toasts) are centered at the bottom of the screen, and the
+   Settings Discard / Save bar slides in only when there are changes.
+   Appended last on purpose. Delete this block to revert.
+   ===================================================================== */
+.toasts { left: 50%; right: auto; top: 84px; bottom: auto; transform: translateX(-50%); align-items: center; width: max-content; max-width: calc(100vw - 32px); pointer-events: none; }
+.toast { text-align: center; max-width: min(420px, calc(100vw - 32px)); pointer-events: auto; }
+@keyframes barIn { from { opacity: 0; transform: translateY(8px); } }
+.savebar:not([hidden]) { animation: barIn .18s ease-out; }
+@media (prefers-reduced-motion: reduce) { .savebar:not([hidden]) { animation: none; } }
+
+/* Dashboard Quick actions: icon and label centered in each tile.
+   Appended last on purpose. Delete this block to revert. */
+.qa__btn { align-items: center; justify-content: center; text-align: center; gap: 10px; }
+.qa__btn .icon { width: 24px; height: 24px; }
