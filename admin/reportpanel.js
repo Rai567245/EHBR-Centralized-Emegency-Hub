@@ -50,7 +50,8 @@ const RP = (() => {
       <div class="panel__head"><span>Report #${esc(r.id)}</span><span class="pill pill--${SC[r.status]} pill--sm pill--caps">${esc(r.status)}</span></div>
       <h2 class="panel__title">${esc(r.type)}</h2>
       <div class="panel__pills"><span class="pill pill--${UC[r.urgency]} pill--sm pill--caps">${esc(r.urgency)} urgency</span>
-        <span class="pill pill--gray pill--sm pill--caps">${r.kind === 'incident' ? 'Incident' : 'Hazard'}</span></div>
+        <span class="pill pill--gray pill--sm pill--caps">${r.kind === 'incident' ? 'Incident' : 'Hazard'}</span>
+        ${r.infoRepliedAt ? '<span class="pill pill--green pill--sm pill--caps">Reporter replied</span>' : ''}</div>
       <p class="panel__text">${esc(r.description)}</p>
       ${(r.photos || []).length ? `<div class="photos" data-photos="${esc(r.photos.join(','))}"><span class="photos__label">Photos (${r.photos.length})</span></div>` : ''}
       <dl class="kv">
