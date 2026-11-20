@@ -340,7 +340,7 @@ class _ReportScreenState extends State<ReportScreen> {
   Future<void> _addPhoto() async {
     if (_photos.length >= _maxPhotos || _busy) return;
 
-    final source = await _pickPhotoSource(context);
+    final source = await pickPhotoSource(context);
     if (source == null || !mounted) return;
 
     try {
@@ -1011,7 +1011,7 @@ const Color _photoBorder = Color(0xFFE2E4EA);
 
 const Color _photoSurface = Color(0xFFF3F4F8);
 
-Future<ImageSource?> _pickPhotoSource(BuildContext context) =>
+Future<ImageSource?> pickPhotoSource(BuildContext context) =>
     showModalBottomSheet<ImageSource>(
       context: context,
       useSafeArea: true,
