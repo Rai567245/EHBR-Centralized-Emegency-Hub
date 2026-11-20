@@ -161,6 +161,10 @@ class Api {
 
   static Future<Report> submitSos(Map<String, dynamic> body) async =>
       Report.fromJson((await _send('POST', '/sos', body: body)) as Map<String, dynamic>);
+
+  /// Answers the barangay's "more info" request on the SAME report.
+  static Future<Report> replyToReport(String reportId, Map<String, dynamic> body) async =>
+      Report.fromJson((await _send('POST', '/reports/${Uri.encodeComponent(reportId)}/reply', body: body)) as Map<String, dynamic>);
       
   // ---- notifications & push
   static Future<NotificationFeed> notifications() async {
