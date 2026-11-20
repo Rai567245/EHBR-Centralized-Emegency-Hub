@@ -913,11 +913,15 @@ route('GET', '/api/admin/stats', 'admin', () => {
 });
 // Phase 2 (SEC-18): Hide identity for anonymous reports
 const adminReport = (r) => { 
+  const { reporterContact, ...rest } = r;   // walk-in numbers are only revealed through the audited /contact route
   const u = db.users.find((x) => x.id === r.userId); 
   if (r.anonymous) {
-    return { ...r, reporterName: 'Anonymous Resident', reporterZone: 'Hidden', reporterContactMasked: '••••' };
+    return { ...rest, reporterName: 'Anonymous Resident', reporterZone: 'Hidden', reporterContactMasked: '••••' };
   }
-  return { ...r, reporterName: fullName(u), reporterZone: (u && u.zone) || '', reporterContactMasked: u ? mask(u.contact) : '' }; 
+  if (!u) {   // walk-in / phone-in report filed by staff for someone without an app account
+    return { ...rest, reporterName: r.reporterName || 'Walk-in reporter', reporterZone: '', reporterContactMasked: reporterContact ? mask(reporterContact) : '' };
+  }
+  return { ...rest, reporterName: fullName(u), reporterZone: u.zone || '', reporterContactMasked: mask(u.contact) }; 
 };
 
 route('GET', '/api/admin/reports', 'admin', ({ query }) => {
@@ -925,10 +929,91 @@ route('GET', '/api/admin/reports', 'admin', ({ query }) => {
   return db.reports.filter((r) => (!st || r.status === st) && (!q || `${r.id} ${r.type} ${r.locationText}`.toLowerCase().includes(q)))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(adminReport);
 });
+// Staff create a report by hand (walk-in or phone call). If the contact number belongs to a registered resident,
+// the report is linked to their account (shows in "My reports" + they get a notification). Otherwise it is a
+// standalone report that still appears on the map/feed once it is verified.
+route('POST', '/api/admin/reports', 'admin', async ({ body, user }) => {
+  const type = str(body.type, 60);
+  if (!ALL_TYPES.includes(type)) throw bad('Choose a valid incident type');
+  const description = str(body.description, 1000);
+  if (description.length < 3) throw bad('Add a short description');
+  const urgency = URGENCIES.includes(body.urgency) ? body.urgency : 'Medium';
+  const locationText = str(body.locationText, 200);
+  const { lat, lng } = cleanLatLng(body.lat, body.lng);
+  if (!locationText && lat === null) throw bad('Add a location (address/landmark or GPS)');
+  const contact = normContact(body.reporterContact);
+  if (contact && !isPhone(contact)) throw bad('Enter a valid contact number, or leave it empty');
+  const resident = contact ? db.users.find((u) => u.role === 'resident' && u.contact === contact) : null;
+  const reporterName = str(body.reporterName, 80);
+  if (!resident && !reporterName) throw bad("Enter the reporter's name");
+  const verified = body.status === 'VERIFIED';
+
+  db.counters.report += 1;
+  const now = nowIso();
+  const r = {
+    id: 'EH-' + String(db.counters.report).padStart(4, '0'), type, kind: kindOf(type), description, urgency,
+    locationText, lat, lng, outside: outsideArea(lat, lng), anonymous: false, status: verified ? 'VERIFIED' : 'NEW',
+    userId: resident ? resident.id : null, assignedTo: '', clientId: '', source: 'admin', filedBy: fullName(user),
+    reportedAt: now, createdAt: now, updatedAt: now, photos: [],
+    timeline: [{ at: now, text: `Filed by barangay staff (${fullName(user)})` }],
+  };
+  if (!resident) { r.reporterName = reporterName; r.reporterContact = contact; }
+  if (verified) r.timeline.push({ at: now, text: `Verified by admin (${fullName(user)})` });
+  db.reports.push(r);
+  log(`${fullName(user)} filed report ${r.id}: ${type}`, 'report');
+  if (resident) notify({ userId: resident.id, kind: 'report', title: 'The barangay filed a report for you', body: `${r.id} (${type}) was recorded by the barangay office. You can follow its progress in the app.`, refId: r.id });
+  if (verified && db.settings.rules.notifyOnVerify) {
+    notify({ kind: 'alert', title: `${type} reported${locationText ? ' – ' + locationText : ''}`,
+      body: 'Verified by the barangay. Stay clear of the area and follow official advisories.', refId: r.id });
+  }
+  await save();
+  return adminReport(r);
+});
+// Reveal the contact number of a report's reporter (audited). Works for walk-ins that have no resident account.
+route('GET', '/api/admin/reports/:id/contact', 'admin', ({ params, user }) => {
+  limit('reveal', user.id);
+  const r = db.reports.find((x) => x.id === params.id);
+  if (!r) throw new HttpError(404, 'Report not found');
+  const u = r.userId ? db.users.find((x) => x.id === r.userId) : null;
+  const contact = u ? u.contact : r.reporterContact;
+  if (!contact) throw new HttpError(404, 'No contact number on this report');
+  log(`${fullName(user)} viewed the contact number for report ${r.id}`, 'audit'); save();
+  return { contact };
+});
+// Address search for the admin map picker. The browser cannot call OpenStreetMap directly (the console's
+// Content-Security-Policy only allows connections to this server), so the server does it.
+// Nominatim's usage policy: at most 1 request per second, identify the app, no search-as-you-type.
+const geoCache = new Map(); let geoNext = 0;
+route('GET', '/api/admin/geocode', 'admin', async ({ query }) => {
+  const text = str(query.get('q') || '', 120), city = str(query.get('city') || '', 80);
+  if (text.length < 3) throw bad('Type at least 3 letters');
+  if (typeof fetch !== 'function') throw new HttpError(503, 'Address search needs Node 18 or newer on the server.');
+  const lookup = async (term) => {
+    const key = term.toLowerCase();
+    if (geoCache.has(key)) return geoCache.get(key);
+    const at = Math.max(Date.now(), geoNext); geoNext = at + 1100;
+    if (at > Date.now()) await new Promise((r) => setTimeout(r, at - Date.now()));
+    const u = new URL('https://nominatim.openstreetmap.org/search');
+    u.search = new URLSearchParams({ format: 'jsonv2', limit: '5', countrycodes: 'ph', q: term }).toString();
+    let res;
+    try { res = await fetch(u, { headers: { 'User-Agent': 'EmergencyHub-Admin/1.0', Accept: 'application/json' }, signal: AbortSignal.timeout(7000) }); }
+    catch { throw new HttpError(503, 'Address search is not reachable right now. Click the map instead.'); }
+    if (!res.ok) throw new HttpError(503, 'Address search is busy. Try again in a moment.');
+    const out = (await res.json()).map((x) => ({ name: str(x.display_name, 200), lat: Number(x.lat), lng: Number(x.lon) }))
+      .filter((x) => Number.isFinite(x.lat) && Number.isFinite(x.lng));
+    if (geoCache.size > 200) geoCache.clear();
+    geoCache.set(key, out);
+    return out;
+  };
+  let out = await lookup(city ? `${text}, ${city}` : text);
+  if (!out.length && city) out = await lookup(text);
+  return out;
+});
 route('POST', '/api/admin/reports/:id/request-info', 'admin', ({ params, body, user }) => {
   const r = db.reports.find((x) => x.id === params.id);
   if (!r) throw new HttpError(404, 'Report not found');
   if (!['NEW', 'VERIFIED', 'DISPATCHED'].includes(r.status)) throw bad('Only open reports can be queried');
+  if (!r.userId) throw bad('This reporter has no app account. Call them instead.');
   const message = str(body.message, 160);
   if (message.length < 5) throw bad('Write a short message for the reporter');
   limit('infoRequest', user.id);
@@ -1030,7 +1115,7 @@ route('PATCH', '/api/admin/reports/:id', 'admin', async ({ params, body, user })
         RESOLVED: ['Report resolved', `Your report ${r.id} (${r.type}) has been marked resolved.`],
         REJECTED: ['Report not accepted', `Your report ${r.id} could not be accepted${r.rejectReason ? ': ' + r.rejectReason : ''}.${r.rejectNote ? ' ' + r.rejectNote : ''} If it is an emergency, call ${db.settings.sos.number}.`],
       }[body.status];
-      if (msg && !(body.status === 'RESOLVED' && body.notifyReporter === false)) notify({ userId: r.userId, kind: 'report', title: msg[0], body: msg[1], refId: r.id });
+      if (msg && r.userId && !(body.status === 'RESOLVED' && body.notifyReporter === false)) notify({ userId: r.userId, kind: 'report', title: msg[0], body: msg[1], refId: r.id });
       if (body.status === 'VERIFIED' && db.settings.rules.notifyOnVerify) {
         notify({ kind: 'alert', title: `${r.type} reported${r.locationText ? ' – ' + r.locationText : ''}`,
           body: 'Verified by the barangay. Stay clear of the area and follow official advisories.', refId: r.id });
