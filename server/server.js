@@ -894,6 +894,9 @@ route('GET', '/api/admin/stats', 'admin', () => {
   const occ = db.centers.reduce((s, c) => s + (c.occupied || 0), 0);
   const statusCounts = Object.fromEntries(STATUSES.map((s) => [s, db.reports.filter((r) => r.status === s).length]));
   return {
+    activeBlockages: db.blockages.filter((x) => !blockExpired(x)).length,
+    totalAnnouncements: db.announcements.length,
+    announcementCounts: db.announcements.reduce((m, a) => { m[a.category] = (m[a.category] || 0) + 1; return m; }, {}),
     activeIncidents: db.reports.filter((r) => r.kind === 'incident' && ['VERIFIED', 'DISPATCHED'].includes(r.status)).length,
     pendingReports: statusCounts.NEW,
     hazardsMonitored: open.filter((r) => r.kind === 'hazard').length,
