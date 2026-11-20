@@ -22,6 +22,7 @@ const DEFAULTS = {
   device:       [30, 3600],    // push-token registrations per resident
   announcement: [30, 3600],    // announcements an admin can post
   infoRequest: [60, 3600],     // "request more info" messages an admin can send
+  infoReply:    [10, 3600],    // replies a resident can send to "more info" requests per hour
   escalate: [60, 3600],
   reveal:       [60, 3600],    // "show contact number" clicks
   addResident:  [60, 3600],    // residents an admin can add
