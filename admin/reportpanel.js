@@ -42,7 +42,7 @@ const RP = (() => {
   function render(r) {
     const chev = '<svg class="icon act__chev"><use href="#i-chev-r"/></svg>';
     const onSite = r.status === 'DISPATCHED' && isOnSite(r);
-    const acts = (ACTIONS[r.status] || []).filter(([s]) => !(onSite && s === '@onsite'))
+    const acts = (ACTIONS[r.status] || []).filter(([s]) => !(onSite && s === '@onsite') && !(!r.userId && s === '@info'))
       .map(([s, label, cls, ic]) => [s, label, onSite && s === 'RESOLVED' ? 'btn--primary' : cls, ic])
       .map(([s, label, cls, ic]) => `<button class="btn act ${cls}" data-act="${s}">${ico(ic)}<span>${label}</span>${chev}</button>`).join('');
     const onSiteNote = onSite ? `<p class="act__done">${ico('i-check')}Responders on site · ${esc(ago(r.onSiteAt))}</p>` : '';
@@ -51,6 +51,7 @@ const RP = (() => {
       <h2 class="panel__title">${esc(r.type)}</h2>
       <div class="panel__pills"><span class="pill pill--${UC[r.urgency]} pill--sm pill--caps">${esc(r.urgency)} urgency</span>
         <span class="pill pill--gray pill--sm pill--caps">${r.kind === 'incident' ? 'Incident' : 'Hazard'}</span>
+        ${r.source === 'admin' ? '<span class="pill pill--gray pill--sm pill--caps">Filed by staff</span>' : ''}
         ${r.infoRepliedAt ? '<span class="pill pill--green pill--sm pill--caps">Reporter replied</span>' : ''}</div>
       <p class="panel__text">${esc(r.description)}</p>
       ${(r.photos || []).length ? `<div class="photos" data-photos="${esc(r.photos.join(','))}"><span class="photos__label">Photos (${r.photos.length})</span></div>` : ''}
@@ -61,7 +62,7 @@ const RP = (() => {
           ? `<div class="kv__row"><dt>Filed on phone</dt><dd>${esc(when(r.reportedAt))} (offline)</dd></div>
         <div class="kv__row"><dt>Received</dt><dd>${esc(when(r.createdAt))} (${esc(ago(r.createdAt))})</dd></div>`
           : `<div class="kv__row"><dt>Reported</dt><dd>${esc(when(r.createdAt))} (${esc(ago(r.createdAt))})</dd></div>`}
-        <div class="kv__row"><dt>Reporter</dt><dd>${esc(r.reporterName)}${r.anonymous ? ' · name hidden publicly' : ''}</dd></div>
+        <div class="kv__row"><dt>Reporter</dt><dd>${esc(r.reporterName)}${r.anonymous ? ' · name hidden publicly' : ''}${r.source === 'admin' && !r.userId ? ' · walk-in, no app account' : ''}</dd></div>
       </dl>
       ${progress(r)}
       <p class="eyebrow">Assign to</p>
@@ -175,7 +176,7 @@ const RP = (() => {
             <p class="callbox__hint">“Call now” opens your phone’s dialer or softphone. The call is made from your device.</p></div>`);
           form.querySelector('[data-reveal]').onclick = async (e) => {
             try {
-              const { contact } = await api(`/admin/residents/${encodeURIComponent(r.userId)}/contact`);
+              const { contact } = await api(r.userId ? `/admin/residents/${encodeURIComponent(r.userId)}/contact` : `/admin/reports/${encodeURIComponent(r.id)}/contact`);
               shown = contact; form.querySelector('[data-num]').textContent = contact; e.target.hidden = true;
               form.querySelector('[data-copy]').hidden = false; const d = form.querySelector('[data-dial]'); d.hidden = false; d.href = 'tel:' + contact;
             } catch (err) { fail(err); }
@@ -185,6 +186,6 @@ const RP = (() => {
       });
       return dd;
     });
-  }
+  } 
   return { render, bind, where, SC, UC, load };
 })();
