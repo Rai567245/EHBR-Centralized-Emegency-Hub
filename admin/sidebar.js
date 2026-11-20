@@ -1,7 +1,9 @@
 'use strict';
 /* Sidebar upgrade, shared by every admin page.
    - splits the menu into Monitor / Respond / Admin
-   - live counts: pending reports (red badge) and active incidents (plain number)
+   - live counts per item: pending reports (red badge), active incidents,
+     active blockages, total announcements (hover shows the type breakdown)
+   - a total next to the MONITOR and RESPOND titles
    - a small status strip above the account card: data freshness + push status
    Load it LAST on each page, after app.js and the page script:
    <script src="sidebar.js"></script> */
@@ -20,14 +22,19 @@
     ['RESPOND', ['reports.html', 'announcements.html']],
     ['ADMIN',   ['database.html', 'settings.html']],
   ];
+  const labelOf = {};
   const firstLabel = side.querySelector('.nav__label');
   GROUPS.forEach(([title, hrefs], i) => {
     const first = items.find((a) => hrefs.includes(hrefOf(a)));
     if (!first) return;
-    if (i === 0 && firstLabel) { firstLabel.textContent = title; firstLabel.classList.add('nav__label--group'); return; }
+    if (i === 0 && firstLabel) {
+      firstLabel.textContent = title; firstLabel.classList.add('nav__label--group');
+      labelOf[title] = firstLabel; return;
+    }
     const p = document.createElement('p');
     p.className = 'nav__label nav__label--group'; p.textContent = title;
     first.before(p);
+    labelOf[title] = p;
   });
 
   /* 2. Counts */
@@ -35,12 +42,21 @@
     const b = a && a.querySelector('.nav__badge'); if (!b) return;
     b.textContent = n > 99 ? '99+' : n; b.hidden = !n;
   }
-  function setCount(a, n) {            // others: a quiet grey number
-    if (!a) return;
-    let c = a.querySelector('.nav__count');
-    if (!c) { c = document.createElement('span'); c.className = 'nav__count'; a.appendChild(c); }
-    c.textContent = n; c.hidden = !n;
+  function setCount(el, n, tip) {      // items AND group titles: a quiet grey number
+    if (!el) return;
+    let c = el.querySelector('.nav__count');
+    if (!c) { c = document.createElement('span'); c.className = 'nav__count'; el.appendChild(c); }
+    c.textContent = n > 99 ? '99+' : n; c.hidden = !n;
+    if (tip) c.title = tip; else c.removeAttribute('title');
   }
+
+  /* Data helpers. Endpoints are listed once here so they are easy to change. */
+  const ENDPOINTS = { blockages: '/admin/blockages', announcements: '/announcements' };
+  const asList = (r) => (Array.isArray(r) ? r : (r && (r.items || r.data || r.blockages || r.announcements)) || []);
+  // A blockage is active until its expected end time passes (the server sets `expired`).
+  const isActive = (x) => !!x && !x.expired && !(x.until && Date.now() > new Date(x.until).getTime());
+  const typeOf = (x) => String(x.category || x.type || '').trim().toLowerCase();
+  const breakdown = (by) => Object.entries(by).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(' · ');
 
   /* 3. Status strip */
   const strip = document.createElement('div');
@@ -57,12 +73,46 @@
       push.classList.add('is-off'); push.lastElementChild.textContent = 'Push status unavailable';
       return;
     }
-    let ok = true;
-    try {
-      const s = await EH.api('/admin/stats');
-      setBadge(link('reports.html'), s.pendingReports || 0);
-      setCount(link('incident-map.html'), s.activeIncidents || 0);
-    } catch { ok = false; }
+    // One failing request must not blank the others.
+    const [st] = await Promise.allSettled([EH.api('/admin/stats')]);
+    const ok = st.status === 'fulfilled';
+    const s = ok ? st.value : {};
+    // Only fall back to the list endpoints when /admin/stats doesn't carry the numbers yet.
+    const none = Promise.resolve(null);
+    const [bl, an] = await Promise.allSettled([
+      s.activeBlockages != null ? none : EH.api(ENDPOINTS.blockages),
+      s.totalAnnouncements != null ? none : EH.api(ENDPOINTS.announcements),
+    ]);
+
+    const pending = s.pendingReports || 0;
+    const incidents = s.activeIncidents || 0;
+    // Prefer a number from /admin/stats if the backend provides it, else count the list.
+    const blockages = s.activeBlockages != null ? s.activeBlockages
+      : bl.status === 'fulfilled' ? asList(bl.value).filter(isActive).length : null;
+
+    let announcements = null, annTip = '';
+    if (s.totalAnnouncements != null) {              // from /admin/stats (preferred)
+      announcements = s.totalAnnouncements;
+      annTip = breakdown(s.announcementCounts || {});
+    } else if (an.status === 'fulfilled') {          // fallback: count the public list
+      const list = asList(an.value);
+      announcements = list.length;
+      const by = {};
+      list.forEach((x) => { const t = typeOf(x) || 'other'; by[t] = (by[t] || 0) + 1; });
+      annTip = breakdown(by);
+    }
+
+    if (ok) {
+      setBadge(link('reports.html'), pending);
+      setCount(link('incident-map.html'), incidents);
+    }
+    if (blockages != null) setCount(link('blockages.html'), blockages);
+    if (announcements != null) setCount(link('announcements.html'), announcements, annTip);
+
+    // Section totals = sum of the numbers shown in that section (ADMIN has none).
+    if (ok || blockages != null) setCount(labelOf.MONITOR, incidents + (blockages || 0), 'Active incidents + active blockages');
+    if (ok || announcements != null) setCount(labelOf.RESPOND, pending + (announcements || 0), 'Pending reports + announcements');
+
     live.classList.toggle('is-off', !ok);
     live.lastElementChild.textContent = ok
       ? 'Live · updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
