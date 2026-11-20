@@ -12,6 +12,7 @@ import 'account_details_screen.dart';
 import 'login_screen.dart';
 import 'profile_pages.dart';
 import 'queued_reports_screen.dart';
+import 'report_reply_sheet.dart';
 
 // Same neutral surface colours as the Home, Map, Contacts and News screens.
 const Color _pBorder = Color(0xFFE2E4EA);
@@ -582,7 +583,7 @@ class _MyReportsState extends State<_MyReports> {
   // Report details
   // ----------------------------------------------------------
 
-  void _details(BuildContext context, Report r) {
+  void _details(BuildContext context, Report r, Future<void> Function() refresh) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -745,6 +746,45 @@ class _MyReportsState extends State<_MyReports> {
                   ),
                 ),
               ),
+              if (r.canReply &&
+                  !ReportQueue.pending.any((q) => q.isReply && q.reportId == r.id))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        final res = await showReplySheet(
+                          sheetContext,
+                          reportId: r.id,
+                          question: r.infoMessage,
+                        );
+                        if (res == null) return;
+                        // This sheet still shows the old timeline, so close it.
+                        if (sheetContext.mounted) Navigator.pop(sheetContext);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(this.context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(SnackBar(
+                            content: Text(res == ReplyOutcome.sent
+                                ? 'Reply sent to the barangay.'
+                                : 'No connection – your reply will send automatically.'),
+                          ));
+                        await refresh();
+                      },
+                      icon: const Icon(Icons.reply_rounded, size: 18),
+                      label: Text('Reply with details',
+                          style: manrope(14, FontWeight.w700, Colors.white)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: EhbrColors.brand,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -838,7 +878,7 @@ class _MyReportsState extends State<_MyReports> {
           if (match.isNotEmpty) {
             final r = match.first;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _details(this.context, r);
+              if (mounted) _details(this.context, r, refresh);
             });
           }
         }
@@ -954,7 +994,7 @@ class _MyReportsState extends State<_MyReports> {
                   ),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => _details(context, r),
+                    onTap: () => _details(context, r, refresh),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Row(
@@ -972,6 +1012,11 @@ class _MyReportsState extends State<_MyReports> {
                                 Text('${r.id} · ${ago(r.createdAt)}',
                                     style: manrope(
                                         11, FontWeight.w500, EhbrColors.muted)),
+                                if (r.canReply) ...[
+                                  const SizedBox(height: 3),
+                                  Text('Reply needed',
+                                      style: manrope(11, FontWeight.w700, _pRed)),
+                                ],
                               ],
                             ),
                           ),
