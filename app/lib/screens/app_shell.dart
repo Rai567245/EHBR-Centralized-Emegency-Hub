@@ -270,6 +270,18 @@ class _AppShellState extends State<AppShell>
     });
   }
 
+  /// Opens My Reports (Profile tab), on one report when [id] is given.
+  void _openReport(String? id) {
+    setState(() {
+      _openReportId = id;
+      _reportsRequest++;
+    });
+    _select(4);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _openReportId = null);
+    });
+  }
+
   void _select(int i) {
     setState(() {
       if (i == _tab) {
@@ -323,6 +335,8 @@ class _AppShellState extends State<AppShell>
                   _reportType = type;
                 }),
                 onOpenNews: _openNews,
+                onOpenReports: _openReport,
+                onOpenMap: () => _select(1),
               ),
         MapScreen(reloadToken: _tokens[1]),
         ContactsScreen(reloadToken: _tokens[2]),
@@ -399,7 +413,7 @@ class _AppShellState extends State<AppShell>
             left: 0,
             right: 0,
             bottom: 0,
-            height: 130,
+            height: 150,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -410,7 +424,7 @@ class _AppShellState extends State<AppShell>
                       Colors.white.withValues(alpha: 0),
                       Colors.white,
                     ],
-                    stops: const [0, .5],
+                    stops: const [0, .6],
                   ),
                 ),
               ),
