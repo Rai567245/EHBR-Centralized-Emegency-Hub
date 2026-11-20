@@ -4,7 +4,7 @@ The system must start with a clean, empty state: absolutely no sample data, dumm
 
 The Emergency Hub Barangay System (EHBR) must operate using a centralized, database-driven approach where the Barangay Admin Console (WAM) serves as the primary source of information for residents using the Mobile App Mode (MAM).
 
-<img width="3694" height="1698" alt="image" src="https://github.com/user-attachments/assets/de4df88c-5f30-4cae-b971-14134e141255" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/5b39b16c-0b3a-4770-9d39-6a58f47dc8b4" />
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/5f0e2f20-b3a4-484d-a2ee-e38966f54b68" />
 
 
