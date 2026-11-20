@@ -10,19 +10,63 @@ import 'report_screen.dart' show pickPhotoSource;
 
 enum ReplyOutcome { sent, queued }
 
-/// Opens the reply sheet. Returns null if the resident closed it without sending.
+/// Floating confirmation, same look as the "notification removed" snackbar.
+void showFloatingSnack(
+  BuildContext context,
+  String text, {
+  IconData icon = Icons.check_circle_outline_rounded,
+  double bottom = 110, // clears the floating nav bar; use 16 on pages without it
+}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: EhbrColors.ink,
+        margin: EdgeInsets.fromLTRB(16, 0, 16, bottom),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        duration: const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Row(
+          children: [
+            Icon(icon, size: 20, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(text, style: manrope(13, FontWeight.w600, Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+}
+
+/// Opens the reply sheet and shows the confirmation snackbar itself.
+/// Returns null if the resident closed it without sending.
 Future<ReplyOutcome?> showReplySheet(
   BuildContext context, {
   required String reportId,
   String? question,
-}) =>
-    showModalBottomSheet<ReplyOutcome>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ReportReplySheet(reportId: reportId, question: question),
+}) async {
+  final outcome = await showModalBottomSheet<ReplyOutcome>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => ReportReplySheet(reportId: reportId, question: question),
+  );
+
+  if (outcome != null && context.mounted) {
+    final sent = outcome == ReplyOutcome.sent;
+    showFloatingSnack(
+      context,
+      sent
+          ? 'Reply sent to the barangay'
+          : 'No connection. Reply saved and will be sent automatically.',
+      icon: sent ? Icons.check_circle_outline_rounded : Icons.schedule_rounded,
     );
+  }
+  return outcome;
+}
 
 class ReportReplySheet extends StatefulWidget {
   const ReportReplySheet({super.key, required this.reportId, this.question});
