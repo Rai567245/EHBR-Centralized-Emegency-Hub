@@ -2864,3 +2864,68 @@ div.dd__item { cursor: default; }
    Appended last on purpose. Delete this block to revert. */
 .qa__btn { align-items: center; justify-content: center; text-align: center; gap: 10px; }
 .qa__btn .icon { width: 24px; height: 24px; }
+
+/* ===== Reports: New Report button + single-line filter row (append to the END of styles.css) ===== */
+#newReportBtn { height: 34px; gap: 6px; flex: none; }
+#newReportBtn .icon { width: 15px; height: 15px; }
+@media (min-width: 861px) {
+  .rp__bar { flex-wrap: nowrap; min-width: 0; }
+  .rp__bar .chips { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .rp__bar .chips::-webkit-scrollbar { display: none; }
+  .rp__bar .chip { flex: none; white-space: nowrap; }
+  .rp__bar > .grow { flex: 1 1 0; min-width: 0; }
+  .rp__bar > .sel, .rp__bar > .btn, .rp__bar > .bar-div { flex: none; }
+}
+/* laptop widths: Type + Urgency move inside the Filters dialog so the row never overflows */
+@media (min-width: 861px) and (max-width: 1100px) {
+  .rp__bar > #fType, .rp__bar > #fUrg,
+  .rp__bar > .cs--bar { display: none; }
+  .rp__bar > .bar-div { display: none; }
+}
+/* phones: icon-only button */
+@media (max-width: 560px) {
+  #newReportBtn .btn__label { display: none; }
+  #newReportBtn { padding: 0 10px; }
+}
+
+/* ===== Reports: New Report button + single-line filter row (append to the END of styles.css) ===== */
+#newReportBtn { height: 34px; gap: 6px; flex: none; }
+#newReportBtn .icon { width: 15px; height: 15px; }
+@media (min-width: 861px) {
+  .rp__bar { flex-wrap: nowrap; min-width: 0; }
+  .rp__bar .chips { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .rp__bar .chips::-webkit-scrollbar { display: none; }
+  .rp__bar .chip { flex: none; white-space: nowrap; }
+  .rp__bar > .grow { flex: 1 1 0; min-width: 0; }
+  .rp__bar > .sel, .rp__bar > .btn, .rp__bar > .bar-div { flex: none; }
+}
+/* laptop widths: Type + Urgency move inside the Filters dialog so the row never overflows */
+@media (min-width: 861px) and (max-width: 1100px) {
+  .rp__bar > #fType, .rp__bar > #fUrg,
+  .rp__bar > .cs--bar { display: none; }
+  .rp__bar > .bar-div { display: none; }
+}
+/* phones: icon-only button */
+@media (max-width: 560px) {
+  #newReportBtn .btn__label { display: none; }
+  #newReportBtn { padding: 0 10px; }
+}
+
+/* ===== Location picker inside the New Report dialog ===== */
+.lp { gap: 8px; }
+.lp__bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lp__status { flex: 1 1 140px; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink); background: var(--bg, #f4f5f7); border-radius: 10px; padding: 9px 12px; }
+.lp__status .icon { width: 14px; height: 14px; flex: none; color: var(--muted); }
+.lp__status span { color: var(--muted); font-weight: 500; }
+.lp .btn.is-on { border-color: var(--brand); color: var(--brand); }
+.lp .btn .icon { width: 14px; height: 14px; }
+.lp__note { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.lp__panel { display: flex; flex-direction: column; gap: 8px; }
+.lp__panel[hidden], .lp__note[hidden], .lp__results[hidden] { display: none; }
+.lp__find { display: flex; gap: 8px; }
+.lp__find .input { flex: 1; min-width: 0; }
+.lp__map { position: relative; z-index: 0; height: 240px; border: 1px solid var(--line); border-radius: 12px; }
+.lp__results { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: #fff; max-height: 150px; overflow: auto; }
+.lp__results button { width: 100%; text-align: left; font: 500 12px var(--font); color: var(--ink); background: none; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.lp__results button:hover, .lp__results button:focus-visible { background: var(--bg, #f4f5f7); outline: 0; }
+.lp__hint { color: var(--muted); font-size: 11px; }
