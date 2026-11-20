@@ -2,7 +2,7 @@
 (async () => {
   if (!EH.init()) return;
   const { $, $$, esc, api, ago, fail, downloadCsv } = EH;
-  let all = [], filter = 'ALL', selected = null, zones = [], tlOpenId = null, page = 1;
+  let all = [], filter = 'ALL', selected = null, zones = [], allTypes = [], mapCenter = null, cityName = '', tlOpenId = null, page = 1;
   let PAGE_SIZE = 8, rowH = 0, fitting = false, reveal = null; // rows per page follows the card height (see fitPageSize)
   // How many rows fit in the list card right now (desktop). Other layouts use 8.
   function fitPageSize() {
@@ -14,6 +14,7 @@
     return Math.max(4, Math.floor((sc.clientHeight - (head ? head.offsetHeight : 0) - 2) / rowH));
   }
   const adv = { range: 'all', zone: '', photos: false, needsInfo: false };
+  const narrow = () => window.matchMedia('(max-width: 1100px)').matches; // Type/Urgency dropdowns are hidden here (see styles) and move into Filters
   const advOn = () => adv.range !== 'all' || adv.zone || adv.photos || adv.needsInfo;
   const RANGES = { all: ['All time', 0], today: ['Today', 1], '7': ['Last 7 days', 7], '30': ['Last 30 days', 30] };
   const search = $('#globalSearch');
@@ -74,7 +75,7 @@
     pg.innerHTML = `<button type="button" class="btn btn--fit" data-pg="prev"${page <= 1 ? ' disabled' : ''}>${chev('i-chev-l')}Prev</button>
       <span class="bk__pager-info">${page} of ${pages}</span>
       <button type="button" class="btn btn--fit" data-pg="next"${page >= pages ? ' disabled' : ''}>Next${chev('i-chev-r')}</button>`;
-    $('#advDot').hidden = !advOn();
+    $('#advDot').hidden = !(advOn() || (narrow() && ($('#fType').value || $('#fUrg').value)));
     renderPanel();
     if (!fitting) {
       const f = fitPageSize();
@@ -87,7 +88,7 @@
     $('#rpBody').innerHTML = Array.from({ length: 6 }, () => '<tr class="skeleton-row"><td colspan="6"><span class="skeleton"></span></td></tr>').join('');
     const [reports, cfg] = await Promise.all([api('/admin/reports'), api('/config'), RP.load()]);
     all = reports; zones = cfg.zones || [];
-    const types = [...cfg.reportTypes.incident, ...cfg.reportTypes.hazard];
+    const types = [...cfg.reportTypes.incident, ...cfg.reportTypes.hazard]; allTypes = types; mapCenter = cfg.mapCenter || null; cityName = (cfg.barangay && cfg.barangay.city) || '';
     $('#fType').innerHTML = '<option value="">Type: All</option>' + types.map((t) => `<option>${esc(t)}</option>`).join('');
     // Opened from a link like reports.html?q=EH-0005: show that report in the side panel, but do NOT keep
     // it as a search filter (otherwise every other status chip looks empty). Anything that is not an exact
@@ -118,13 +119,46 @@
     const out = await EH.modal({
       title: 'Filters', sub: `${visible().length} reports match right now.`, submit: 'Apply filters',
       fields: [
+        ...(narrow() ? [
+          { name: 'type', label: 'Type', type: 'select', value: $('#fType').value, options: [{ value: '', label: 'All types' }, ...allTypes], full: true },
+          { name: 'urg', label: 'Urgency', type: 'select', value: $('#fUrg').value, options: [{ value: '', label: 'All urgencies' }, 'Critical', 'High', 'Medium', 'Low'], full: true },
+        ] : []),
         { name: 'range', label: 'Date range', type: 'select', value: adv.range, options: Object.entries(RANGES).map(([v, [l]]) => ({ value: v, label: l })), full: true },
         { name: 'zone', label: 'Zone / Purok (of the reporter)', type: 'select', value: adv.zone, options: [{ value: '', label: 'All zones' }, ...zones], full: true },
         { name: 'photos', label: 'Has photos', type: 'checkbox', value: adv.photos, full: true },
         { name: 'needsInfo', label: 'Waiting for the reporter to reply (more info requested)', type: 'checkbox', value: adv.needsInfo, full: true },
       ],
     });
-    if (out) { Object.assign(adv, { range: out.range, zone: out.zone, photos: out.photos, needsInfo: out.needsInfo }); page = 1; render(); }
+    if (out) {
+      Object.assign(adv, { range: out.range, zone: out.zone, photos: out.photos, needsInfo: out.needsInfo });
+      if (narrow()) ['#fType', '#fUrg'].forEach((id, i) => { const el = $(id); el.value = i ? out.urg : out.type; el.dispatchEvent(new Event('change')); });
+      page = 1; render();
+    }
+  });
+  // ---- manual report (walk-in / phone call)
+  $('#newReportBtn').addEventListener('click', async () => {
+    const out = await EH.modal({
+      title: 'New report', sub: 'Record a report from a walk-in or phone call. It is added to the list and shown in the resident app.', submit: 'Create report',
+      fields: [
+        { name: 'type', label: 'Type', type: 'select', options: [{ value: '', label: 'Select a type' }, ...allTypes], full: true },
+        { name: 'urgency', label: 'Urgency', type: 'select', value: 'Medium', options: ['Low', 'Medium', 'High', 'Critical'] },
+        { name: 'status', label: 'Status', type: 'select', value: 'VERIFIED', options: [{ value: 'VERIFIED', label: 'Verified (visible to residents)' }, { value: 'NEW', label: 'New (needs review)' }] },
+        { name: 'locationText', label: 'Location', required: true, full: true, placeholder: 'Street, landmark or purok' },
+        { name: 'description', label: 'Description', type: 'textarea', max: 1000, required: true, full: true, placeholder: 'What happened? Who is affected?' },
+        { name: 'reporterName', label: 'Reporter name', placeholder: 'Required if not a resident' },
+        { name: 'reporterContact', label: 'Contact number', placeholder: '09xx xxx xxxx' },
+      ],
+      onOpen: (bg, form) => LP.attach(form, { center: mapCenter, city: cityName }),   // map pin, search, my location, paste
+      onSubmit: (v) => {
+        if (!v.type) throw new Error('Select a report type.');
+        // v.lat / v.lng come from the picker's hidden inputs ('' when no pin was dropped)
+        return api('/admin/reports', { method: 'POST', body: { type: v.type, urgency: v.urgency, status: v.status, locationText: v.locationText, lat: v.lat, lng: v.lng, description: v.description, reporterName: v.reporterName, reporterContact: v.reporterContact } });
+      },
+    });
+    if (!out || out === true) return;
+    clearAll();                         // make sure no filter hides the new report
+    all.unshift(out); selected = out.id; reveal = out.id; render();
+    EH.toast(`Report ${out.id} created`, 'ok');
   });
   $('#exportBtn').addEventListener('click', async () => {
     const rows = visible(); if (!rows.length) return EH.toast('Nothing to export.');
