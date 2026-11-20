@@ -746,7 +746,7 @@ route('POST', '/api/devices/remove', 'user', ({ body, user }) => {
 });
 route('GET', '/api/photos/:name', 'user', ({ params, user }) => {
   const name = params.name;
-  const m = /^(EH-\d{4,})-[123]\.(jpg|png)$/.exec(name);
+  const m = /^(EH-\d{4,})-[1-9]\.(jpg|png)$/.exec(name);
   const r = m && db.reports.find((x) => x.id === m[1]);
   if (!r || !(r.photos || []).includes(name) || (user.role !== 'admin' && r.userId !== user.id)) throw new HttpError(404, 'Not found');
   let buf; try { buf = fs.readFileSync(path.join(UPLOAD_DIR, name)); } catch { throw new HttpError(404, 'Not found'); }
@@ -754,6 +754,74 @@ route('GET', '/api/photos/:name', 'user', ({ params, user }) => {
 });
 route('GET', '/api/reports/mine', 'user', ({ user }) =>
   db.reports.filter((r) => r.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(residentView));
+// ---- resident answers an admin's "more info" request on the SAME report
+const MAX_TOTAL_PHOTOS = 9, MAX_REPLIES = 10;
+function decodePhotos(raw) {
+  const out = [];
+  for (const p of raw) {
+    if (typeof p !== 'string') continue;
+    const buf = Buffer.from(p.replace(/^data:[^,]*,/, ''), 'base64');
+    if (buf.length < 100 || buf.length > MAX_PHOTO_BYTES) throw bad('Each photo must be under 1.5 MB');
+    const jpg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const png = buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    if (!jpg && !png) throw bad('Photos must be JPEG or PNG images');
+    out.push([buf, jpg ? 'jpg' : 'png']);
+  }
+  return out;
+}
+route('POST', '/api/reports/:id/reply', 'user', async ({ params, body, user }) => {
+  const r = db.reports.find((x) => x.id === params.id && x.userId === user.id);   // not yours = not found
+  if (!r) throw new HttpError(404, 'Report not found');
+
+  // A retry of a reply we already stored: answer success without adding it twice.
+  const clientId = /^[A-Za-z0-9-]{8,64}$/.test(str(body.clientId, 64)) ? str(body.clientId, 64) : '';
+  if (clientId && (r.replyIds || []).includes(clientId)) return residentView(r);
+
+  if (!['NEW', 'VERIFIED', 'DISPATCHED'].includes(r.status)) throw bad('This report is already closed. File a new report if you still need help.');
+  if (!r.infoRequested) throw bad('The barangay is not waiting for more details on this report.');
+  if ((r.replyCount || 0) >= MAX_REPLIES) throw bad('Too many replies on this report. Please call the barangay office.');
+  limit('infoReply', user.id);
+
+  const message = str(body.message, 300);
+  const locationText = str(body.locationText, 200);
+  const { lat, lng } = cleanLatLng(body.lat, body.lng);
+  const photoBufs = decodePhotos(Array.isArray(body.photos) ? body.photos.slice(0, MAX_PHOTOS) : []);
+  if (!message && !locationText && lat === null && !photoBufs.length) throw bad('Add a message, a photo or your location.');
+  if ((r.photos || []).length + photoBufs.length > MAX_TOTAL_PHOTOS) throw bad('This report already has the maximum number of photos.');
+
+  const now = nowIso();
+  // When the phone was offline, keep the moment the resident actually replied (same rule as new reports).
+  const t = Date.parse(body.repliedAt);
+  const at = !Number.isNaN(t) && t <= Date.now() + 5 * 60000 && t >= Date.now() - 7 * 864e5 ? new Date(t).toISOString() : now;
+
+  if (photoBufs.length) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    r.photos = r.photos || [];
+    for (const [buf, ext] of photoBufs) {
+      const name = `${r.id}-${r.photos.length + 1}.${ext}`;
+      fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+      r.photos.push(name);
+    }
+  }
+  if (lat !== null) { r.lat = lat; r.lng = lng; r.outside = outsideArea(lat, lng); }
+  if (locationText) r.locationText = locationText;
+
+  const parts = [];
+  if (message) parts.push(`“${message}”`);
+  if (photoBufs.length) parts.push(`${photoBufs.length} photo${photoBufs.length > 1 ? 's' : ''} added`);
+  if (locationText) parts.push(`location: ${locationText}`);
+  else if (lat !== null) parts.push('GPS location updated');
+  r.timeline.push({ at, text: 'Resident replied – ' + parts.join(' · ') });
+
+  r.infoRequested = null;
+  r.infoRepliedAt = now;
+  r.replyCount = (r.replyCount || 0) + 1;
+  if (clientId) r.replyIds = [...(r.replyIds || []), clientId].slice(-20);
+  r.updatedAt = now;
+  log(`Reporter replied on ${r.id}`, 'report');   // shows in the admin bell feed
+  await save();
+  return residentView(r);
+}, { photoBody: true });
 // Phase 2 (SEC-19): Coarsen public locations for sensitive incident types
 route('GET', '/api/reports/public', 'user', () =>
   db.reports.filter((r) => ['VERIFIED', 'DISPATCHED'].includes(r.status)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -863,6 +931,8 @@ route('POST', '/api/admin/reports/:id/request-info', 'admin', ({ params, body, u
   limit('infoRequest', user.id);
   r.timeline.push({ at: nowIso(), text: `More info requested: “${message}” (${fullName(user)})` });
   r.infoRequested = nowIso();
+  r.infoMessage = message;      // the resident app shows this in the reply sheet
+  r.infoRepliedAt = null;
   r.updatedAt = nowIso();
   log(`More info requested for ${r.id}`, 'report');
   notify({ userId: r.userId, kind: 'report', title: 'The barangay needs more details', body: `About your report ${r.id}: ${message}`, refId: r.id });
@@ -936,6 +1006,7 @@ route('PATCH', '/api/admin/reports/:id', 'admin', async ({ params, body, user })
     
     if (body.status !== r.status) {
       r.status = body.status;
+      r.infoRepliedAt = null;
       if (body.status === 'REJECTED') { r.rejectReason = str(body.reason, 80); r.rejectNote = str(body.note, 300); }
       if (body.status === 'DISPATCHED') {
         if (str(body.team, 60)) { r.assignedTo = str(body.team, 60); r.timeline.push({ at: nowIso(), text: `Assigned to ${r.assignedTo}` }); }
