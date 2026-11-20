@@ -65,7 +65,7 @@
     page = Math.min(Math.max(1, page), pages);
     const rows = matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     $('#rpBody').innerHTML = rows.map((r) => `<tr data-id="${esc(r.id)}" class="${r.id === selected ? 'is-selected' : ''}">
-      <td class="id">${esc(r.id)}</td><td>${esc(r.type)}</td><td>${esc(RP.where(r))}</td>
+      <td class="id">${esc(r.id)}</td><td>${esc(r.type)}${r.infoRepliedAt ? ' <span class="pill pill--green pill--sm">Replied</span>' : ''}</td><td>${esc(RP.where(r))}</td>
       <td><span class="pill pill--${RP.UC[r.urgency]} pill--sm">${esc(r.urgency)}</span></td><td>${esc(ago(r.createdAt))}</td>
       <td><span class="pill pill--${RP.SC[r.status]} pill--sm pill--caps">${esc(r.status)}</span></td></tr>`).join('');
     $('#rpEmpty').innerHTML = rows.length ? '' : `<div class="empty"><b>${all.length ? 'No reports match these filters' : 'No reports yet'}</b>${all.length ? 'Try a different status or clear the filters.<br><button class="btn btn--sm btn--fit" id="clearFilters" style="margin-top:10px">Clear filters</button>' : 'Reports filed by residents in the app will show up here.'}</div>`;
