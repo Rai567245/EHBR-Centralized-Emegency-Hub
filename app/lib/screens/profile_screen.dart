@@ -763,14 +763,8 @@ class _MyReportsState extends State<_MyReports> {
                         if (res == null) return;
                         // This sheet still shows the old timeline, so close it.
                         if (sheetContext.mounted) Navigator.pop(sheetContext);
+                        // The floating confirmation is shown by showReplySheet.
                         if (!mounted) return;
-                        ScaffoldMessenger.of(this.context)
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(SnackBar(
-                            content: Text(res == ReplyOutcome.sent
-                                ? 'Reply sent to the barangay.'
-                                : 'No connection – your reply will send automatically.'),
-                          ));
                         await refresh();
                       },
                       icon: const Icon(Icons.reply_rounded, size: 18),
