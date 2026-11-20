@@ -87,7 +87,9 @@
     return errs.length === 0;
   }
   const dirty = () => JSON.stringify(collect()) !== saved;
-  const refresh = () => { validate(); $('#saveMsg').textContent = dirty() ? 'You have unsaved changes' : 'All changes saved'; };
+  // the Discard / Save bar only shows on editable tabs, and only while there is something to save
+  const syncBar = () => { $('#savebar').hidden = !(['general', 'alerts', 'contacts'].includes(tab) && dirty()); };
+  const refresh = () => { validate(); $('#saveMsg').textContent = 'You have unsaved changes'; syncBar(); };
 
   try { const s = await api('/admin/settings'); fill(s); saved = JSON.stringify(collect()); } catch (e) { return fail(e); }
   validate();
@@ -96,7 +98,7 @@
     tab = ['general', 'alerts', 'privacy', 'contacts', 'zones', 'account'].includes(t) ? t : 'general';
     $$('#tabs .tab').forEach((a) => a.classList.toggle('is-on', a.dataset.tab === tab));
     $$('[data-pane]').forEach((x) => { x.hidden = x.dataset.pane !== tab; });
-    $('#savebar').hidden = !['general', 'alerts', 'contacts'].includes(tab);
+    syncBar();
     const on = $('#tabs .tab.is-on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' });
     if (tab === 'privacy') drawLog();
   };
