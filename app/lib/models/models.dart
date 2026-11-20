@@ -247,6 +247,8 @@ class Report {
     required this.timeline,
     this.rejectReason,
     this.rejectNote,
+    this.needsInfo = false,
+    this.infoMessage,
   });
 
   final String id, type, kind, description, urgency, locationText, status;
@@ -259,6 +261,16 @@ class Report {
 
   /// Optional additional explanation entered by barangay staff.
   final String? rejectNote;
+
+  /// The barangay asked for more details and is still waiting for an answer.
+  final bool needsInfo;
+
+  /// What they asked. Null for requests made before the server stored it.
+  final String? infoMessage;
+
+  /// True when the resident can still answer from the app.
+  bool get canReply =>
+      needsInfo && const ['NEW', 'VERIFIED', 'DISPATCHED'].contains(status);
 
   factory Report.fromJson(Map<String, dynamic> j) => Report(
         id: j['id'] as String,
@@ -281,6 +293,8 @@ class Report {
             .toList(),
         rejectReason: j['rejectReason'] as String?,
         rejectNote: j['rejectNote'] as String?,
+        needsInfo: j['infoRequested'] != null,
+        infoMessage: j['infoMessage'] as String?,
       );
 }
 
