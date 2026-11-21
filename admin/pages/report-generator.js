@@ -15,6 +15,10 @@
   const bytes = (n) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB` : `${(n / 1048576).toFixed(1)} MB`);
   const isNum = (c) => ['int', 'pct', 'num', 'minutes'].includes(c.type);
   const catOf = (id) => meta.categories.find((c) => c.id === id);
+  // the top bar stays on screen while scrolling, so sticky parts of this page must sit below it
+  const topbar = document.querySelector('.topbar');
+  const setTop = () => { const fixed = topbar && ['sticky', 'fixed'].includes(getComputedStyle(topbar).position); document.documentElement.style.setProperty('--rg-top', (fixed ? Math.round(topbar.getBoundingClientRect().height) : 0) + 'px'); };
+  setTop(); window.addEventListener('resize', setTop);
 
   // ------------------------------------------------------------- configuration panel
   function drawCategory() {
@@ -51,6 +55,33 @@
   };
   const schedule = () => { clearTimeout(timer); timer = setTimeout(preview, 300); };
 
+  // ------------------------------------------------------------- pagination (one section per page, plus paging inside the long report list)
+  const pages = new Map(); // block key -> current page; cleared whenever a new preview arrives
+  const PAGE_ROWS = 10, PAGE_CARDS = 5;
+  function paginate(box, key, items, size, tail) {
+    const old = box.querySelector(':scope > .rg-pager'); if (old) old.remove();
+    items.forEach((r) => { r.style.display = ''; }); if (tail) tail.style.display = '';
+    const n = Math.max(1, Math.ceil(items.length / size));
+    if (n < 2) return;
+    const p = Math.min(Math.max(pages.get(key) || 0, 0), n - 1); pages.set(key, p);
+    items.forEach((r, i) => { r.style.display = i >= p * size && i < (p + 1) * size ? '' : 'none'; });
+    if (tail) tail.style.display = p === n - 1 ? '' : 'none';
+    box.insertAdjacentHTML('beforeend', `<div class="rg-pager" data-key="${key}"><button type="button" data-pg="prev"${p === 0 ? ' disabled' : ''}>&lsaquo; Prev</button><span>${p + 1} of ${n}</span><button type="button" data-pg="next"${p === n - 1 ? ' disabled' : ''}>Next &rsaquo;</button></div>`);
+  }
+  function setupPagers() {
+    // 1) the long list of matching reports pages its own rows
+    Array.from($$('#result .rg-sec--list .table-card')).forEach((card) => {
+      const rows = Array.from(card.querySelectorAll('tbody tr:not(.rg-total)'));
+      rows.forEach((r) => { r.style.display = ''; });
+      const probe = rows[0] && rows[0].querySelector('td[data-label]'), th = card.querySelector('thead');
+      const stacked = (!!probe && getComputedStyle(probe).display !== 'table-cell') || (!!th && getComputedStyle(th).display === 'none') || (card.clientWidth > 0 && card.clientWidth < 560);
+      paginate(card, 'list', rows, stacked ? PAGE_CARDS : PAGE_ROWS, null);
+    });
+    // 2) overall: one report section per page (chart + table together)
+    const box = $('#result .rg-secs');
+    if (box) paginate(box, 'sec', Array.from(box.children).filter((x) => x.classList.contains('rg-sec')), 1, null);
+  }
+
   // ------------------------------------------------------------- preview
   const table = (cols, cells, total, wide = false) => `<div class="table-card db__card"><div class="db__scroll"><table class="tbl${wide ? ' rg-table--wide' : ''}"><thead><tr>${cols.map((c) => `<th${isNum(c) ? ' class="rg-num"' : ''}>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${cells.map((r) => `<tr>${r.map((v, i) => `<td${i ? ` data-label="${esc(cols[i].label)}"` : ''}${isNum(cols[i]) ? ' class="rg-num"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}${total ? `<tr class="rg-total">${total.map((v, i) => `<td${i ? ` data-label="${esc(cols[i].label)}"` : ''}${isNum(cols[i]) ? ' class="rg-num"' : ''}>${esc(v)}</td>`).join('')}</tr>` : ''}</tbody></table></div></div>`;
   function chart(c) {
@@ -71,11 +102,14 @@
     if (d.summary.length) h += `<div class="rg-cards">${d.summary.map((c) => `<div class="rg-card"><p class="rg-card__l">${esc(c.label)}</p><p class="rg-card__v">${esc(c.value)}</p>${c.note ? `<p class="rg-card__n">${esc(c.note)}</p>` : ''}</div>`).join('')}</div>`;
     if (d.notes.length) h += `<div class="rg-note"><b>Data notes</b><ul>${d.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>`;
     if (!d.empty) {
+      h += '<div class="rg-secs">';
       for (const s of d.sections) h += `<div class="rg-sec"><h3>${esc(s.title)}</h3>${s.note ? `<p>${esc(s.note)}</p>` : ''}${chart(s.chart)}${s.cells.length ? table(s.columns, s.cells, s.total) : '<p>No rows for this section.</p>'}</div>`;
-      if (d.list) h += `<div class="rg-sec"><h3>${esc(d.list.title)}</h3><p>${d.list.total > d.list.cells.length ? `Showing the first ${d.list.cells.length.toLocaleString()} of ${d.list.total.toLocaleString()} rows. The exported file has them all.` : `${d.list.total.toLocaleString()} row(s).`}</p>${table(d.list.columns, d.list.cells, null, true)}</div>`;
+      if (d.list) h += `<div class="rg-sec rg-sec--list"><h3>${esc(d.list.title)}</h3><p>${d.list.total > d.list.cells.length ? `Showing the first ${d.list.cells.length.toLocaleString()} of ${d.list.total.toLocaleString()} rows. The exported file has them all.` : `${d.list.total.toLocaleString()} row(s).`}</p>${table(d.list.columns, d.list.cells, null, true)}</div>`;
+      h += '</div>';
     }
     if (d.definitions.length) h += `<details class="rg-defs"><summary>What these numbers mean</summary><dl>${d.definitions.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details>`;
     $('#result').innerHTML = h;
+    setupPagers();
   }
   async function preview() {
     const id = ++reqId, box = $('#result');
@@ -83,7 +117,7 @@
     try {
       const d = await api(`${API}/preview`, { method: 'POST', body: { config: config() } });
       if (id !== reqId) return;
-      doc = d; renderDoc(d);
+      doc = d; pages.clear(); renderDoc(d);
     } catch (e) {
       if (id !== reqId) return;
       doc = null; box.innerHTML = `<div class="rg-note rg-note--red"><b>This report cannot be built yet</b>${esc(e.message || 'Something went wrong.')}</div>`;
@@ -168,6 +202,13 @@
   });
   $('#filters').addEventListener('click', (e) => { const b = e.target.closest('[data-clear]'); if (!b) return; delete state.filters[b.dataset.clear]; drawFilters(); schedule(); });
   $('#optLoc').addEventListener('change', (e) => { state.includeLocation = e.target.checked; schedule(); });
+  $('#result').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pg]'); if (!b || b.disabled) return;
+    const card = b.closest('.rg-pager').parentElement, key = b.closest('.rg-pager').dataset.key;
+    pages.set(key, (pages.get(key) || 0) + (b.dataset.pg === 'next' ? 1 : -1)); setupPagers();
+    if (card.getBoundingClientRect().top < 0) card.scrollIntoView({ block: 'start' });
+  });
+  if (window.ResizeObserver) { let w = 0; new ResizeObserver(() => { const nw = $('#result').clientWidth; if (nw !== w) { w = nw; setupPagers(); } }).observe($('#result')); }  // table <-> card layout switch changes the page size
   $('#result').addEventListener('click', (e) => { const b = e.target.closest('[data-fmt]'); if (b && !b.disabled) exportAs(b.dataset.fmt); });
   $('#tabs').addEventListener('click', (e) => { const a = e.target.closest('.tab'); if (!a) return; e.preventDefault(); history.replaceState(null, '', '#' + a.dataset.tab); showTab(a.dataset.tab); });
   function showTab(t) {
