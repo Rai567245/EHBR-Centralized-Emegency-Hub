@@ -17,9 +17,13 @@
   (() => {
     const KEY = 'ehbr.sidebar.collapsed';
     const app = side.closest('.app') || document.body;
+    // Keep the sidebar in view while the page scrolls (skipped if the stylesheet already pins it with position: fixed)
+    const pos = getComputedStyle(side).position;
+    const stick = pos !== 'fixed' && pos !== 'absolute';
     const css = document.createElement('style');
     css.textContent = `
 @media (min-width: 861px) {
+  ${stick ? '.app .sidebar, .sidebar { position: sticky !important; top: 0 !important; align-self: flex-start !important; height: 100vh !important; max-height: 100vh !important; overflow-y: auto; overscroll-behavior: contain; }' : ''}
   .sidebar.sb-anim { transition: width .2s ease, padding .2s ease; }
   .sb-toggle { margin-right: 12px; flex: none; cursor: pointer; }
   .app.sb-collapsed .sidebar { width: 76px; padding-left: 10px; padding-right: 10px; overflow: hidden; }
@@ -175,15 +179,12 @@
     }
 
     if (ok) {
-      setBadge(link('reports.html'), pending);
+      setBadge(link('reports.html'), 0);                    // retire the red badge...
+      setCount(link('reports.html'), pending, 'Pending reports');   // ...and show the same quiet grey number as the other items
       setCount(link('incident-map.html'), incidents);
     }
     if (blockages != null) setCount(link('blockages.html'), blockages);
     if (announcements != null) setCount(link('announcements.html'), announcements, annTip);
-
-    // Section totals = sum of the numbers shown in that section (ADMIN has none).
-    if (ok || blockages != null) setCount(labelOf.MONITOR, incidents + (blockages || 0), 'Active incidents + active blockages');
-    if (ok || announcements != null) setCount(labelOf.RESPOND, pending + (announcements || 0), 'Pending reports + announcements');
 
     live.classList.toggle('is-off', !ok);
     live.lastElementChild.textContent = ok
