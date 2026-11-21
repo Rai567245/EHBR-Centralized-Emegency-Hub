@@ -236,6 +236,8 @@ const limiter = createLimiter({
   overrides: parseOverrides(process.env.RATE_LIMITS),
   allow: (process.env.RATE_LIMIT_ALLOW || '').split(',').map((x) => x.trim()).filter(Boolean),
 });
+// Backup & Restore: while a restore runs, every API call except /health and the backup status gets a 503.
+const maintenance = { on: false };
 let warnedXff = false;
 const ipOf = (req) => {
   if (!TRUST_PROXY && req.headers['x-forwarded-for'] && !warnedXff) {
@@ -1274,6 +1276,18 @@ route('PUT', '/api/admin/settings', 'admin', ({ body, user }) => {
   return db.settings;
 });
 
+// ------------------------------------------------------------------ backup & restore (see backup.js)
+require('./backup').register({
+  route, HttpError, pg, save, log, nowIso, fullName, checkPw, limiter, maintenance, UPLOAD_DIR, DATA_FILE, emptyDb, normalize,
+  getDb: () => db, setDb: (d) => { db = d; },
+});
+
+// ------------------------------------------------------------------ reports generator (see reportgen.js)
+require('./reportgen').register({
+  route, HttpError, save, log, nowIso, fullName, checkPw, limiter, ALL_TYPES, URGENCIES, STATUSES,
+  getDb: () => db,
+});
+
 // ------------------------------------------------------------------ static admin console
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; " +
@@ -1316,6 +1330,7 @@ const server = http.createServer(async (req, res) => {
       return serveStatic(req, res, url.pathname);
     }
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
+    if (maintenance.on && !/^\/api\/(health|admin\/backups\/status)$/.test(url.pathname)) throw new HttpError(503, 'The system is being restored from a backup. Please try again in a minute.', 10);
     const ip = ipOf(req);
     const who = userFromReq(req);
     if (who) limit('userAll', who.id); else limit('anonIp', ip);
@@ -1328,6 +1343,7 @@ const server = http.createServer(async (req, res) => {
       if (r.auth === 'admin' && user.role !== 'admin') throw new HttpError(403, 'Admins only');
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, (r.photoBody && req.headers.authorization) ? 7 * 1024 * 1024 : 100000) : {};
       const out = await r.handler({ req, res, ip, params: m.groups || {}, body, user, query: url.searchParams });
+      if (out && out.__handled) return;   // the handler already wrote the response (streamed file)
       if (out && out.__raw) return send(res, 200, out.__raw, { ...cors, 'Content-Type': out.type });
       return send(res, 200, out, cors);
     }
