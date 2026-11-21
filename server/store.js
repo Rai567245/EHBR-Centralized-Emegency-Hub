@@ -121,8 +121,68 @@ function createStore(url, { ssl = process.env.DATABASE_SSL } = {}) {
     }
   }
 
+  // ---- Backup & Restore support -------------------------------------------------------------
+  // Tables that are backed up. sessions (login tokens) and resets (one-time codes) are deliberately
+  // left out: they are short-lived secrets and must never be resurrected from an old file.
+  const BACKUP_TABLES = [...LISTS.filter((t) => t !== 'resets'), 'activity', 'meta'];
+  const keyColOf = (t) => (t === 'activity' ? 'pos' : t === 'meta' ? 'key' : 'id');
+
+  /** Consistent point-in-time copy of every backed-up table (one REPEATABLE READ transaction). */
+  async function dumpAll() {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const out = {};
+      for (const t of BACKUP_TABLES) {
+        const k = keyColOf(t);
+        const stamp = LISTS.includes(t) ? ', updated_at' : '';
+        const r = await client.query(`SELECT ${k} AS key, doc${stamp} FROM ${t} ORDER BY ${t === 'activity' ? 'pos' : LISTS.includes(t) ? 'updated_at, id' : 'key'}`);
+        out[t] = r.rows.map((x) => ({ key: String(x.key), doc: x.doc, at: x.updated_at ? new Date(x.updated_at).toISOString() : null }));
+      }
+      await client.query('COMMIT');
+      return out;
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  }
+
+  /** Replaces every backed-up table with `tables` in ONE transaction: all-or-nothing. sessions/resets are untouched. */
+  async function restoreAll(tables) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const t of BACKUP_TABLES) {
+        const k = keyColOf(t), rows = tables[t] || [];
+        await client.query(`DELETE FROM ${t}`);
+        const base = Date.now();
+        for (let i = 0; i < rows.length; i += 300) {
+          const chunk = rows.slice(i, i + 300), args = [], vals = [];
+          chunk.forEach((row, j) => {
+            const n = i + j, key = t === 'activity' ? Number(row.key) : row.key;
+            args.push(key, JSON.stringify(row.doc));
+            if (LISTS.includes(t)) { args.push(row.at || new Date(base + n).toISOString()); vals.push(`($${args.length - 2}, $${args.length - 1}, $${args.length})`); }
+            else vals.push(`($${args.length - 1}, $${args.length})`);
+          });
+          await client.query(`INSERT INTO ${t} (${k}, doc${LISTS.includes(t) ? ', updated_at' : ''}) VALUES ${vals.join(',')}`, args);
+        }
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
+  }
+
+  /** Row counts straight from the database (used to verify a restore). */
+  async function countAll() {
+    const out = {};
+    for (const t of BACKUP_TABLES) out[t] = Number((await pool.query(`SELECT count(*) AS n FROM ${t}`)).rows[0].n);
+    return out;
+  }
+
   return {
-    init, hasData, loadInto,
+    init, hasData, loadInto, dumpAll, restoreAll, countAll, BACKUP_TABLES,
     /** Call after every change. */
     save: schedule,
     /** Must be called once, before the first save(). */
