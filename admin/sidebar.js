@@ -12,6 +12,78 @@
   if (!side || side.dataset.enhanced) return;
   side.dataset.enhanced = '1';
 
+  /* -1. Collapsible sidebar (desktop). The button sits at the start of the top bar; the choice is remembered.
+         Phones keep the existing slide-out drawer, so the button is hidden there. */
+  (() => {
+    const KEY = 'ehbr.sidebar.collapsed';
+    const app = side.closest('.app') || document.body;
+    const css = document.createElement('style');
+    css.textContent = `
+@media (min-width: 861px) {
+  .sidebar.sb-anim { transition: width .2s ease, padding .2s ease; }
+  .sb-toggle { margin-right: 12px; flex: none; cursor: pointer; }
+  .app.sb-collapsed .sidebar { width: 76px; padding-left: 10px; padding-right: 10px; overflow: hidden; }
+  .app.sb-collapsed .brand { justify-content: center; padding: 0 0 16px; }
+  .app.sb-collapsed .brand > div:not(.brand__logo) { display: none; }
+  .app.sb-collapsed .nav__label { font-size: 0; height: 1px; padding: 0; margin: 8px 10px; background: var(--line, #e5e7eb); overflow: hidden; }
+  .app.sb-collapsed .nav__label .nav__count { display: none; }
+  .app.sb-collapsed .nav__item { position: relative; justify-content: center; gap: 0; padding: 11px 0; font-size: 0; }
+  .app.sb-collapsed .nav__item .nav__count { display: none; }
+  .app.sb-collapsed .nav__item .nav__badge { position: absolute; top: 2px; right: 6px; margin: 0; padding: 0 5px; font-size: 10px; }
+  .app.sb-collapsed .side-status { display: none; }
+  .app.sb-collapsed .user { flex-direction: column; align-items: center; gap: 8px; padding: 10px 0; }
+  .app.sb-collapsed .user > div:not(.user__avatar) { display: none; }
+  .app.sb-collapsed .user .logout { margin: 0; }
+}
+@media (max-width: 860px) { .sb-toggle { display: none !important; } }`;
+    document.head.appendChild(css);
+
+    const get = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
+    const put = (v) => { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch { /* storage blocked: still works for this page */ } };
+    const bar = document.querySelector('.topbar');
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'icon-btn sb-toggle';
+    btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>';
+    const apply = (collapsed) => {
+      app.classList.toggle('sb-collapsed', collapsed);
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+      btn.setAttribute('aria-label', label); btn.title = label;
+    };
+    apply(get());
+    if (bar) bar.prepend(btn);
+    btn.addEventListener('click', () => { const v = !app.classList.contains('sb-collapsed'); apply(v); put(v); });
+    requestAnimationFrame(() => requestAnimationFrame(() => side.classList.add('sb-anim')));   // no slide on first paint
+    // collapsed items show only icons, so give each one a tooltip with its name
+    side.querySelectorAll('.nav__item').forEach((a) => {
+      const t = [...a.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+      if (t && !a.title) a.title = t;
+    });
+  })();
+
+  /* 0. Backup & Restore link. Added here so it appears on every page without editing each HTML file
+        (backup.html already contains it, so nothing is added twice). */
+  if (!side.querySelector('a.nav__item[href="backup.html"]')) {
+    const before = side.querySelector('a.nav__item[href="settings.html"]') || side.querySelector('a.nav__item[href="database.html"]');
+    if (before) {
+      const a = document.createElement('a');
+      a.className = 'nav__item'; a.href = 'backup.html';
+      a.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>Backup &amp; Restore';
+      before.before(a);                      // Database, Backup & Restore, Settings
+    }
+  }
+
+  /* 0b. Reports Generator link, placed between Database and Backup & Restore. Added here for the same reason. */
+  if (!side.querySelector('a.nav__item[href="report-generator.html"]')) {
+    const before = side.querySelector('a.nav__item[href="backup.html"]') || side.querySelector('a.nav__item[href="settings.html"]');
+    if (before) {
+      const a = document.createElement('a');
+      a.className = 'nav__item'; a.href = 'report-generator.html';
+      a.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Reports Generator';
+      before.before(a);
+    }
+  }
+
   const items = [...side.querySelectorAll('.nav__item')];
   const hrefOf = (a) => (a.getAttribute('href') || '').split(/[?#]/)[0];
   const link = (h) => items.find((a) => hrefOf(a) === h);
@@ -20,7 +92,7 @@
   const GROUPS = [
     ['MONITOR', ['index.html', 'incident-map.html', 'blockages.html']],
     ['RESPOND', ['reports.html', 'announcements.html']],
-    ['ADMIN',   ['database.html', 'settings.html']],
+    ['ADMIN',   ['database.html', 'report-generator.html', 'backup.html', 'settings.html']],
   ];
   const labelOf = {};
   const firstLabel = side.querySelector('.nav__label');
