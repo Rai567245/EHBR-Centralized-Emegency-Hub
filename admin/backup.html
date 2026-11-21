@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backup &amp; Restore · Emergency Hub Admin</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .br-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+    .br-card { background: var(--white); border: 1px solid rgba(16, 24, 40, .06); border-radius: 18px; box-shadow: var(--shadow-sm, 0 1px 2px rgba(16, 24, 40, .05)); padding: 16px 18px; min-width: 0; }
+    .br-card__label { font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .br-card__label .icon { width: 16px; height: 16px; }
+    .br-card__value { font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin-top: 8px; line-height: 1.2; overflow-wrap: anywhere; }
+    .br-card__note { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .br-note { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.45; margin-bottom: 12px; background: var(--blue-soft); color: var(--blue); }
+    .br-note .icon { margin-top: 1px; }
+    .br-note--amber { background: var(--amber-soft); color: var(--amber-ink); }
+    .br-note--red { background: var(--danger-soft); color: #9b1c1c; }
+    .br-note--green { background: var(--green-soft); color: var(--green-ink); }
+    .br-note b { font-weight: 700; }
+    .br-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: br-spin .8s linear infinite; flex: none; margin-top: 2px; }
+    @keyframes br-spin { to { transform: rotate(360deg); } }
+    .br-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .br-sub--bad { color: #b42318; }
+    .br-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+    .br-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; flex-wrap: nowrap; }
+    .br-lockbtn[aria-pressed="true"] { color: var(--brand); background: var(--danger-soft); border-radius: 8px; }
+    .br-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .br-card--wide { width: 100%; padding: 24px 28px; }
+    .br-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+    .br-col { display: grid; gap: 18px; align-content: start; }
+    .br-foot { display: flex; align-items: center; gap: 16px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .br-foot .form-error { margin: 0; }
+    .br-row { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 12px; align-items: center; }
+    .br-row > label { font-size: 13px; font-weight: 600; }
+    .br-row small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .br-row .input, .br-row .sel { width: 100%; max-width: 320px; }
+    .br-lock { position: fixed; inset: 0; background: rgba(16, 24, 40, .55); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .br-lock__box { background: var(--white); border-radius: 18px; padding: 26px 28px; max-width: 420px; text-align: center; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .5); }
+    .br-lock__box h2 { font-size: 18px; margin: 12px 0 6px; }
+    .br-lock__box p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .br-lock .br-spin { width: 28px; height: 28px; border-width: 3px; margin: 0 auto; color: var(--brand); }
+    .br-first { min-width: 0; }
+    /* wide cards keep a real table (scrolls sideways if needed); narrow cards use the stylesheet's stacked-card layout */
+    @container (min-width: 641px) { .br-table { min-width: 860px; } .br-table--audit { min-width: 760px; } }
+    @container (max-width: 640px) {
+      .br-first b { display: block; overflow-wrap: anywhere; }
+      .db .br-table td.br-actions-cell { display: block; text-align: left; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+      .db .br-table td.br-actions-cell::before { display: none; }
+      .br-val { display: flex; flex-direction: column; align-items: flex-end; }
+      .br-actions { flex-wrap: nowrap; justify-content: stretch; width: 100%; }
+      .br-actions .btn { flex: 1 1 0; justify-content: center; padding-left: 8px; padding-right: 8px; }
+      .br-actions .btn .icon { display: none; }
+      .br-actions .x-btn { flex: none; }
+    }
+    @media (max-width: 1100px) { .br-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 900px) { .br-cols { grid-template-columns: 1fr; gap: 24px; } .br-card--wide { padding: 18px; } }
+    @media (max-width: 640px) { .br-cards { grid-template-columns: 1fr; } .br-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="i-mega" viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 001 1h2l5 4V6L6 10H4a1 1 0 00-1 1zM16 8a5 5 0 010 8M19 5a9 9 0 010 14"/></symbol>
+<symbol id="i-dl" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+<symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-15-6.7L3 13"/></symbol>
+</defs></svg>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand__logo"><svg class="icon "><use href="#i-plus"/></svg></div>
+      <div><p class="brand__name">Emergency Hub</p><p class="brand__sub">Admin Console</p></div></div>
+    <p class="nav__label">MANAGE</p>
+    <a class="nav__item" href="index.html"><svg class="icon "><use href="#i-grid"/></svg>Dashboard</a>
+    <a class="nav__item" href="incident-map.html"><svg class="icon "><use href="#i-pin"/></svg>Incident Map</a>
+    <a class="nav__item" href="blockages.html"><svg class="icon "><use href="#i-block"/></svg>Road Blockages</a>
+    <a class="nav__item" href="reports.html"><svg class="icon "><use href="#i-file"/></svg>Reports<span class="nav__badge" hidden>0</span></a>
+    <a class="nav__item" href="announcements.html"><svg class="icon "><use href="#i-mega"/></svg>Announcements</a>
+    <a class="nav__item" href="database.html"><svg class="icon "><use href="#i-db"/></svg>Database</a>
+    <a class="nav__item is-active" href="backup.html"><svg class="icon "><use href="#i-shield"/></svg>Backup &amp; Restore</a>
+    <a class="nav__item" href="settings.html"><svg class="icon "><use href="#i-sliders"/></svg>Settings</a>
+    <div class="sidebar__spacer"></div>
+    <div class="user"><div class="user__avatar">AD</div>
+      <div><p class="user__name">Admin</p><p class="user__place">Administrator</p></div>
+      <button class="logout" id="logoutBtn" title="Log out" aria-label="Log out"><svg class="icon "><use href="#i-logout"/></svg></button></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div><h1 class="topbar__title">Backup &amp; Restore</h1><p class="topbar__sub" id="pageSub">Protect and recover the Emergency Hub data</p></div>
+      <div class="topbar__spacer"></div>
+      <label class="search"><svg class="icon "><use href="#i-search"/></svg><input id="globalSearch" type="search" placeholder="Search reports (press Enter)"></label>
+      <a class="icon-btn" href="reports.html" aria-label="Reports"><svg class="icon "><use href="#i-bell"/></svg><span class="bell-dot" hidden></span></a>
+    </header>
+    <main class="db">
+      <div id="banners"></div>
+      <div class="br-cards" id="cards"></div>
+
+      <nav class="tabs" id="tabs">
+        <a class="tab is-on" href="#history" data-tab="history">Backup history <em id="cCount">0</em></a>
+        <a class="tab" href="#schedule" data-tab="schedule">Schedule &amp; retention</a>
+        <a class="tab" href="#audit" data-tab="audit">Audit log</a>
+      </nav>
+
+      <section id="tab-history" style="margin-top:14px">
+        <div class="db__bar">
+          <select class="sel" id="fType" aria-label="Type"><option value="">Type: All</option><option value="manual">Manual</option><option value="auto">Scheduled</option><option value="pre-restore">Safety (pre-restore)</option></select>
+          <select class="sel" id="fStatus" aria-label="Status"><option value="">Status: All</option><option value="completed">Completed</option><option value="in_progress">In progress</option><option value="failed">Failed</option></select>
+          <select class="sel" id="fValid" aria-label="Validation"><option value="">Validation: All</option><option value="valid">Valid</option><option value="unchecked">Not validated</option><option value="invalid">Invalid</option></select>
+          <span class="grow"></span>
+          <button class="btn btn--primary btn--sm" id="createBtn" type="button"><svg class="icon "><use href="#i-plus"/></svg>Create backup</button>
+        </div>
+        <div class="br-note" style="margin-top:14px"><svg class="icon "><use href="#i-lock"/></svg><span>Backup files contain confidential resident and administrative information, including account data. Store them securely and handle them in line with the Data Privacy Act of 2012. Downloading or restoring requires your password and is recorded in the audit log.</span></div>
+        <div class="table-card db__card"><div class="db__scroll"><table class="tbl br-table"><thead><tr><th>Backup</th><th>Type</th><th>Created</th><th>Size</th><th>Validation</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead><tbody id="body"></tbody></table><div id="empty"></div></div>
+          <nav class="bk__pager rp__pager" id="pager" aria-label="Backup pages"></nav></div>
+      </section>
+
+      <section id="tab-schedule" style="margin-top:14px" hidden>
+        <div class="br-card br-card--wide"><form id="schedForm" autocomplete="off">
+          <div class="br-cols">
+            <div class="br-col">
+              <div><h2 class="sec__title">Automatic backups</h2><p class="sec__sub">Scheduled backups run on the server, so they happen even when nobody is logged in. Times use <b id="tzName">the server time zone</b>.</p></div>
+              <div class="br-row"><label for="sEnabled">Automatic backups</label><label class="toggle"><input type="checkbox" id="sEnabled" aria-label="Automatic backups"><i></i></label></div>
+              <div class="br-row"><label for="sFreq">Frequency</label><select class="sel" id="sFreq"><option value="daily">Every day</option><option value="weekly">Once a week</option></select></div>
+              <div class="br-row" id="rowDay"><label for="sDay">Day of the week</label><select class="sel" id="sDay"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></div>
+              <div class="br-row"><label for="sTime">Time<small>Pick a quiet hour, e.g. 2:00 AM.</small></label><input class="input" type="time" id="sTime" required></div>
+            </div>
+            <div class="br-col">
+              <div><h2 class="sec__title">Retention</h2><p class="sec__sub">Old backups are deleted automatically. The newest valid backups and any protected backup are always kept, so you are never left without a usable copy.</p></div>
+              <div class="br-row"><label for="sKeepDays">Keep backups for (days)</label><input class="input" type="number" id="sKeepDays" min="1" max="3650" step="1"></div>
+              <div class="br-row"><label for="sKeepMin">Always keep the newest<small>valid backups, whatever their age</small></label><input class="input" type="number" id="sKeepMin" min="1" max="50" step="1"></div>
+            </div>
+          </div>
+          <div class="br-foot"><div id="schedErr" class="form-error" hidden></div><button class="btn btn--primary btn--fit" id="schedSave" type="submit">Save schedule</button></div>
+        </form></div>
+      </section>
+
+      <section id="tab-audit" style="margin-top:14px" hidden>
+        <div class="table-card db__card"><div class="db__scroll"><table class="tbl br-table br-table--audit"><thead><tr><th>Time</th><th>Action</th><th>Backup</th><th>By</th><th>Source</th><th>Result</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table><div id="auditEmpty"></div></div></div>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="app.js"></script>
+<script src="pages/backup.js"></script>
+<script src="sidebar.js"></script>
+</body>
+</html>

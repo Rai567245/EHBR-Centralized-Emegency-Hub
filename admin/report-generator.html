@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reports Generator · Emergency Hub Admin</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .rg { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 14px; }
+    .rg__panel { background: var(--white); border: 1px solid rgba(16, 24, 40, .06); border-radius: 18px; box-shadow: var(--shadow-sm, 0 1px 2px rgba(16, 24, 40, .05)); padding: 18px; position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow: auto; }
+    .rg__step { margin-bottom: 18px; }
+    .rg__step:last-child { margin-bottom: 0; }
+    .rg__label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .02em; text-transform: uppercase; margin-bottom: 8px; }
+    .rg__panel .sel, .rg__panel .input { width: 100%; }
+    .rg__desc { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 8px; }
+    .rg-seg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: var(--bg, #f3f4f6); padding: 3px; border-radius: 10px; }
+    .rg-seg button { border: 0; background: transparent; padding: 7px 0; border-radius: 8px; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; }
+    .rg-seg button.is-on { background: var(--white); color: var(--ink, #111); box-shadow: 0 1px 3px rgba(16, 24, 40, .12); }
+    .rg-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .rg-presets button { border: 1px solid var(--line, #e5e7eb); background: var(--white); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 11.5px; color: var(--muted); cursor: pointer; }
+    .rg-presets button:hover { color: var(--brand); border-color: var(--brand); }
+    .rg-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .rg-two label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .rg-filter { margin-bottom: 12px; }
+    .rg-filter__t { font-size: 12.5px; font-weight: 600; margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .rg-filter__t button { border: 0; background: none; color: var(--brand); font: inherit; font-size: 11.5px; cursor: pointer; padding: 0; }
+    .rg-checks { border: 1px solid var(--line, #e5e7eb); border-radius: 10px; padding: 6px 8px; max-height: 124px; overflow: auto; display: grid; gap: 2px; }
+    .rg-checks label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 2px; cursor: pointer; }
+    .rg-checks input { accent-color: var(--brand); }
+    .rg-opt { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.4; background: var(--amber-soft); color: var(--amber-ink); padding: 10px; border-radius: 10px; cursor: pointer; }
+    .rg-opt input { margin-top: 2px; accent-color: var(--brand); }
+    .rg-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
+    .rg-head h2 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+    .rg-head p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); }
+    .rg-export { display: flex; gap: 8px; flex-wrap: wrap; }
+    .rg-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .rg-chip { background: var(--bg, #f3f4f6); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: #374151; }
+    .rg-chip b { font-weight: 700; }
+    .rg-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .rg-card { background: var(--white); border: 1px solid rgba(16, 24, 40, .06); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+    .rg-card p { margin: 0; }
+    .rg-card__l { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+    .rg-card__v { font-size: 22px; font-weight: 800; letter-spacing: -.01em; margin-top: 4px !important; overflow-wrap: anywhere; line-height: 1.15; }
+    .rg-card__n { font-size: 11.5px; color: var(--muted); margin-top: 4px !important; line-height: 1.35; }
+    .rg-note { border-radius: 12px; padding: 12px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 14px; background: var(--amber-soft); color: var(--amber-ink); }
+    .rg-note b { display: block; margin-bottom: 4px; }
+    .rg-note ul { margin: 0; padding-left: 18px; }
+    .rg-note--red { background: var(--danger-soft); color: #9b1c1c; }
+    .rg-note--blue { background: var(--blue-soft); color: var(--blue); }
+    .rg-empty { text-align: center; padding: 36px 16px; background: var(--white); border: 1px dashed var(--line, #d1d5db); border-radius: 16px; margin-bottom: 14px; }
+    .rg-empty b { display: block; font-size: 15px; margin-bottom: 4px; }
+    .rg-empty span { font-size: 13px; color: var(--muted); }
+    .rg-sec { margin: 20px 0 8px; }
+    .rg-sec h3 { font-size: 15px; margin: 0 0 3px; }
+    .rg-sec p { font-size: 12px; color: var(--muted); margin: 0 0 10px; line-height: 1.45; }
+    .rg-bars { display: grid; gap: 5px; margin: 8px 0 4px; }
+    .rg-bar { display: grid; grid-template-columns: minmax(80px, 34%) 1fr 70px; gap: 10px; align-items: center; font-size: 12.5px; }
+    .rg-bar__l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rg-bar__t { background: var(--bg, #f3f4f6); border-radius: 6px; height: 14px; overflow: hidden; }
+    .rg-bar__t i { display: block; height: 100%; background: var(--brand); border-radius: 6px; min-width: 2px; }
+    .rg-bar b { font-weight: 700; font-size: 12.5px; }
+    .rg-unit { font-size: 11px; color: var(--muted); margin: 2px 0 12px; }
+    .rg-cols { display: flex; align-items: flex-end; gap: 2px; height: 150px; padding: 18px 0 0; border-bottom: 1px solid var(--line, #d1d5db); margin-top: 6px; }
+    .rg-col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
+    .rg-col i { display: block; width: 72%; background: var(--brand); border-radius: 3px 3px 0 0; min-height: 0; }
+    .rg-col__v { font-size: 10px; font-weight: 700; margin-bottom: 2px; min-height: 12px; }
+    .rg-col__l { position: absolute; top: 100%; margin-top: 4px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+    .rg-cols + .rg-unit { margin-top: 22px; }
+    .rg-num { text-align: right; }
+    .rg-table--wide { min-width: 880px; }
+    .rg-total td { font-weight: 800; border-top: 2px solid #374151; }
+    .rg-loading { opacity: .45; pointer-events: none; transition: opacity .15s; }
+    .rg-defs summary { cursor: pointer; font-weight: 700; font-size: 13px; margin: 18px 0 8px; }
+    .rg-defs dl { margin: 0; display: grid; grid-template-columns: 180px 1fr; gap: 6px 14px; font-size: 12.5px; }
+    .rg-defs dt { font-weight: 700; } .rg-defs dd { margin: 0; color: #374151; line-height: 1.45; }
+    .rg-spin { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: rg-spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+    @keyframes rg-spin { to { transform: rotate(360deg); } }
+    .rg-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .rg-first { min-width: 0; } .rg-first b { display: block; }
+    .rg-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+    @container (max-width: 640px) {
+      .db .rg-table--wide td.rg-actions-cell { display: block; text-align: left; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+      .db .rg-table--wide td.rg-actions-cell::before { display: none; }
+      .rg-val { display: flex; flex-direction: column; align-items: flex-end; }
+      .rg-actions { justify-content: stretch; } .rg-actions .btn { flex: 1 1 0; justify-content: center; } .rg-actions .btn .icon { display: none; }
+    }
+    @media (max-width: 1100px) { .rg { grid-template-columns: 1fr; } .rg__panel { position: static; max-height: none; } }
+    @container (max-width: 640px) { .rg-table--wide { min-width: 0; } .rg-num { text-align: inherit; } }
+    @media (max-width: 640px) { .rg-bar { grid-template-columns: minmax(70px, 38%) 1fr 56px; } .rg-defs dl { grid-template-columns: 1fr; } .rg-defs dt { margin-top: 6px; } }
+  </style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></symbol>
+<symbol id="i-mega" viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 001 1h2l5 4V6L6 10H4a1 1 0 00-1 1zM16 8a5 5 0 010 8M19 5a9 9 0 010 14"/></symbol>
+<symbol id="i-dl" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+<symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+</defs></svg>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand__logo"><svg class="icon "><use href="#i-plus"/></svg></div>
+      <div><p class="brand__name">Emergency Hub</p><p class="brand__sub">Admin Console</p></div></div>
+    <p class="nav__label">MANAGE</p>
+    <a class="nav__item" href="index.html"><svg class="icon "><use href="#i-grid"/></svg>Dashboard</a>
+    <a class="nav__item" href="incident-map.html"><svg class="icon "><use href="#i-pin"/></svg>Incident Map</a>
+    <a class="nav__item" href="blockages.html"><svg class="icon "><use href="#i-block"/></svg>Road Blockages</a>
+    <a class="nav__item" href="reports.html"><svg class="icon "><use href="#i-file"/></svg>Reports<span class="nav__badge" hidden>0</span></a>
+    <a class="nav__item" href="announcements.html"><svg class="icon "><use href="#i-mega"/></svg>Announcements</a>
+    <a class="nav__item" href="database.html"><svg class="icon "><use href="#i-db"/></svg>Database</a>
+    <a class="nav__item is-active" href="report-generator.html"><svg class="icon "><use href="#i-chart"/></svg>Reports Generator</a>
+    <a class="nav__item" href="backup.html"><svg class="icon "><use href="#i-shield"/></svg>Backup &amp; Restore</a>
+    <a class="nav__item" href="settings.html"><svg class="icon "><use href="#i-sliders"/></svg>Settings</a>
+    <div class="sidebar__spacer"></div>
+    <div class="user"><div class="user__avatar">AD</div>
+      <div><p class="user__name">Admin</p><p class="user__place">Administrator</p></div>
+      <button class="logout" id="logoutBtn" title="Log out" aria-label="Log out"><svg class="icon "><use href="#i-logout"/></svg></button></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div><h1 class="topbar__title">Reports Generator</h1><p class="topbar__sub" id="pageSub">Build summaries from your records, preview them, then export</p></div>
+      <div class="topbar__spacer"></div>
+      <label class="search"><svg class="icon "><use href="#i-search"/></svg><input id="globalSearch" type="search" placeholder="Search reports (press Enter)"></label>
+      <a class="icon-btn" href="reports.html" aria-label="Reports"><svg class="icon "><use href="#i-bell"/></svg><span class="bell-dot" hidden></span></a>
+    </header>
+    <main class="db">
+      <nav class="tabs" id="tabs">
+        <a class="tab is-on" href="#generate" data-tab="generate">Generate</a>
+        <a class="tab" href="#history" data-tab="history">History <em id="cHist">0</em></a>
+        <a class="tab" href="#audit" data-tab="audit">Audit log</a>
+      </nav>
+
+      <section id="tab-generate">
+        <div class="rg">
+          <aside class="rg__panel" id="panel" aria-label="Report settings">
+            <div class="rg__step"><label class="rg__label" for="cat">1 · Report</label><select class="sel" id="cat"></select><p class="rg__desc" id="catDesc"></p></div>
+            <div class="rg__step"><span class="rg__label">2 · Period</span>
+              <div class="rg-seg" id="seg" role="group" aria-label="Period type"><button type="button" data-p="day">Day</button><button type="button" data-p="week">Week</button><button type="button" data-p="month">Month</button><button type="button" data-p="year">Year</button><button type="button" data-p="custom">Custom</button></div>
+              <div id="pInputs" style="margin-top:10px"></div>
+              <div class="rg-presets" id="presets"><button type="button" data-preset="today">Today</button><button type="button" data-preset="week">This week</button><button type="button" data-preset="month">This month</button><button type="button" data-preset="year">This year</button></div>
+              <p class="rg__desc" id="tzNote"></p></div>
+            <div class="rg__step" id="filtersStep"><span class="rg__label">3 · Filters <span style="text-transform:none;font-weight:400">(optional)</span></span><div id="filters"></div></div>
+            <div class="rg__step" id="optStep" hidden><label class="rg-opt"><input type="checkbox" id="optLoc"><span><b>Include location text (confidential)</b><br>Adds the location exactly as the reporter typed it, which can be a home address. Needs your password and is recorded in the audit log.</span></label></div>
+          </aside>
+
+          <section id="result" aria-live="polite">
+            <div class="rg-empty"><b>Loading…</b></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="tab-history" style="margin-top:14px" hidden>
+        <div class="rg-note rg-note--blue" id="histNote">Generated files are kept for a limited time, then removed automatically. The audit log keeps the record that they were created.</div>
+        <div class="table-card db__card"><div class="db__scroll"><table class="tbl rg-table--wide"><thead><tr><th>Report</th><th>Period</th><th>Format</th><th>Generated</th><th>Size</th><th>Expires</th><th style="text-align:right">Actions</th></tr></thead><tbody id="histBody"></tbody></table><div id="histEmpty"></div></div></div>
+      </section>
+
+      <section id="tab-audit" style="margin-top:14px" hidden>
+        <div class="table-card db__card"><div class="db__scroll"><table class="tbl rg-table--wide"><thead><tr><th>Time</th><th>Action</th><th>File</th><th>By</th><th>Result</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table><div id="auditEmpty"></div></div></div>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="app.js"></script>
+<script src="pages/report-generator.js"></script>
+<script src="sidebar.js"></script>
+</body>
+</html>
