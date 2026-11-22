@@ -102,6 +102,9 @@
                 placeholder="admin.sample@example.ph"
                 autocomplete="username"
                 required
+                maxlength="60"
+                pattern="[a-zA-Z0-9@._-]+"
+                title="Only letters, numbers, @, periods, hyphens, and underscores are allowed"
               >
 
             </div>
@@ -129,6 +132,7 @@
                 placeholder="Enter your password"
                 autocomplete="current-password"
                 required
+                maxlength="64"
               >
 
               <button
