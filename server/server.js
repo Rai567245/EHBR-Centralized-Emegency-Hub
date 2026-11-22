@@ -21,6 +21,31 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
 const ADMIN_DIR = path.join(__dirname, '..', 'admin');
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+const { createClient } = require('@supabase/supabase-js');
+const sms = require('./sms');
+
+const BUCKET = process.env.SUPABASE_BUCKET || 'report-photos';
+const sb = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
+  : null;   // null = fall back to the local uploads/ folder (handy for local dev)
+
+async function storePhoto(name, buf, contentType) {
+  if (sb) {
+    const { error } = await sb.storage.from(BUCKET).upload(name, buf, { contentType, upsert: true });
+    if (error) { console.error('[storage]', error.message); throw new HttpError(503, 'Could not store the photo. Please try again.'); }
+    return;
+  }
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+}
+async function loadPhoto(name) {
+  if (sb) {
+    const { data, error } = await sb.storage.from(BUCKET).download(name);
+    return error || !data ? null : Buffer.from(await data.arrayBuffer());
+  }
+  try { return fs.readFileSync(path.join(UPLOAD_DIR, name)); } catch { return null; }
+}
+
 const MAX_PHOTOS = 3, MAX_PHOTO_BYTES = 1.5 * 1024 * 1024;
 const SESSION_MS = 30 * 24 * 3600 * 1000;
 
@@ -236,6 +261,8 @@ const limiter = createLimiter({
   overrides: parseOverrides(process.env.RATE_LIMITS),
   allow: (process.env.RATE_LIMIT_ALLOW || '').split(',').map((x) => x.trim()).filter(Boolean),
 });
+// Backup & Restore: while a restore runs, every API call except /health and the backup status gets a 503.
+const maintenance = { on: false };
 let warnedXff = false;
 const ipOf = (req) => {
   if (!TRUST_PROXY && req.headers['x-forwarded-for'] && !warnedXff) {
@@ -389,9 +416,28 @@ route('GET', '/api/config', null, () => ({
   barangay: db.settings.barangay, sos: db.settings.sos, mapCenter: db.settings.mapCenter,
   zones: db.settings.zones, allowAnonymous: db.settings.rules.allowAnonymous,
   contacts: db.settings.contacts.filter((c) => c.show), reportTypes: REPORT_TYPES,
-  emailReset: mailer.enabled(),
+  emailReset: mailer.enabled() || sms.enabled(),
 }));
-route('GET', '/api/announcements', null, () => db.announcements.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+// Announcement pictures: stored as files, handed out as full URLs (the phone needs an absolute address).
+const ANN_IMG_MAX = 2 * 1024 * 1024;
+const ANN_IMG_TYPES = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+function publicBase(req) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
+  const proto = (TRUST_PROXY && String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim()) || (req.socket.encrypted ? 'https' : 'http');
+  return `${proto}://${req.headers.host}`;
+}
+const withImageUrl = (a, base) => { const { image, ...rest } = a; return { ...rest, imageUrl: image ? `${base}/api/announcement-images/${image}` : '' }; };
+route('GET', '/api/announcements', null, ({ req }) => {
+  const base = publicBase(req);
+  return db.announcements.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => withImageUrl(a, base));
+});
+route('GET', '/api/announcement-images/:name', null, ({ params }) => {
+  const m = /^ann-[0-9a-f-]{36}\.(jpg|png|webp)$/.exec(params.name);
+  const a = m && db.announcements.find((x) => x.image === params.name);
+  if (!a) throw new HttpError(404, 'Not found');
+  let buf; try { buf = fs.readFileSync(path.join(UPLOAD_DIR, params.name)); } catch { throw new HttpError(404, 'Not found'); }
+  return { __raw: buf, type: ANN_IMG_TYPES[m[1]] };
+});
 route('GET', '/api/centers', null, () => db.centers);
 
 route('POST', '/api/auth/register', null, async ({ body, ip }) => {
@@ -445,29 +491,34 @@ route('POST', '/api/auth/forgot', null, ({ body, ip }) => {
   const contact = normContact(body.contact);
   limit('forgotContact', contact || 'none');
   const u = isPhone(contact) ? db.users.find((x) => x.contact === contact && x.role === 'resident') : null;
-  if (u) {
+    if (u) {
     pruneResets();
     const old = db.resets.find((r) => r.userId === u.id);
     const dead = old && old.status === 'issued' && (Date.now() > new Date(old.expiresAt).getTime() || old.attempts >= RESET_TRIES);
-    const wantsStaff = !!body.staff || !u.email || !mailer.enabled();
-    if (wantsStaff) {
-      // Staff-assisted path: used when there is no email on the account, email is not set up, or the resident asked for it.
-      if (dead || (old && old.via === 'email')) db.resets = db.resets.filter((r) => r !== old);
-      if (!old || dead || old.via === 'email') {
+    const emailOk = !!u.email && mailer.enabled();
+    const smsOk = sms.enabled() && process.env.RESET_CHANNEL !== 'email';   // SMS first when Twilio is on
+    if (body.staff || (!emailOk && !smsOk)) {
+      // staff-assisted path (unchanged, except it now replaces any non-staff request)
+      if (dead || (old && old.via !== 'staff')) db.resets = db.resets.filter((r) => r !== old);
+      if (!old || dead || old.via !== 'staff') {
         db.resets.push({ id: newId(), userId: u.id, requestedAt: nowIso(), status: 'pending', via: 'staff' });
         log(`Password reset requested by ${fullName(u)}`, 'user'); save();
       }
-    } else {
-      const { code } = issueReset(u.id, { digits: 6, ms: EMAIL_RESET_MS, via: 'email' });
+    } else if (smsOk) {
+      const { code } = issueReset(u.id, { digits: 6, ms: EMAIL_RESET_MS, via: 'sms' });
       save();
-      mailer.send({
-        to: u.email, subject: 'Your Emergency Hub password reset code',
-        text: `Hello ${u.firstName},\n\nYour password reset code is: ${code}\n\nIt works once and expires in 15 minutes. Enter it in the app together with your new password.\n\nIf you did not ask for this, ignore this email – your password has not changed. Never share this code with anyone, including barangay staff who contact you first.\n\n– ${db.settings.barangay.name ? 'Barangay ' + db.settings.barangay.name : 'Emergency Hub'}`,
-      }).catch((e) => console.error('[mail]', e.message));
-      log(`Password reset code emailed to ${fullName(u)}`, 'user');
+      sms.send(u.contact, `Emergency Hub: your password reset code is ${code}. It works once and expires in 15 minutes. Never share it.`)
+        .catch((e) => {
+          console.error('[sms]', e.message);   // e.g. a Twilio trial number that is not verified
+          db.resets = db.resets.filter((x) => x.userId !== u.id);
+          db.resets.push({ id: newId(), userId: u.id, requestedAt: nowIso(), status: 'pending', via: 'staff' });
+          save();
+        });
+      log(`Password reset code texted to ${fullName(u)}`, 'user');
+    } else {
+      // email path: keep your existing issueReset(... via: 'email') + mailer.send(...) + log(...) lines here, unchanged
     }
   }
-  // Same answer whether or not the number exists (and whichever path was used), so nobody can use this to find out who is registered.
   return { ok: true };
 });
 route('POST', '/api/auth/reset', null, async ({ body, ip }) => {
@@ -513,7 +564,7 @@ route('POST', '/api/auth/reset/verify', null, ({ body, ip }) => {
 
 route('GET', '/api/admin/resets', 'admin', () => {
   pruneResets();
-  return db.resets.filter((r) => r.via !== 'email').map((r) => {
+  return db.resets.filter((r) => r.via === 'staff' || !r.via).map((r) => {
     const u = db.users.find((x) => x.id === r.userId);
     const live = r.status === 'issued' && Date.now() < new Date(r.expiresAt).getTime() && r.attempts < RESET_TRIES;
     return u && { id: r.id, residentId: u.id, name: fullName(u), zone: u.zone, contactMasked: mask(u.contact), requestedAt: r.requestedAt,
@@ -632,16 +683,16 @@ route('POST', '/api/sos', 'user', async ({ body, user }) => {
   };
 
   db.reports.push(r);
-  log(`🚨 SOS Emergency triggered by ${fullName(user)} (ID: ${r.id})`, 'report');
+  log(`SOS Emergency triggered by ${fullName(user)} (ID: ${r.id})`, 'report');
   
   // Instantly alert admins in the console
-  notify({ kind: 'alert', category: 'alert', title: `🚨 SOS: ${fullName(user)}`, body: `Immediate assistance required!`, refId: r.id });
+  notify({ kind: 'alert', category: 'alert', title: `SOS: ${fullName(user)}`, body: `Immediate assistance required!`, refId: r.id });
   
   await save();
   return r;
 });
 
-route('POST', '/api/reports', 'user', ({ body, user }) => {
+route('POST', '/api/reports', 'user', async ({ body, user }) => {
   // Offline-queue support: the phone sends a random clientId so a retry never files the same report twice.
   const clientId = /^[A-Za-z0-9-]{8,64}$/.test(str(body.clientId, 64)) ? str(body.clientId, 64) : '';
   if (clientId) {
@@ -690,10 +741,14 @@ route('POST', '/api/reports', 'user', ({ body, user }) => {
     reportedAt, createdAt: received, updatedAt: received, photos: [],
     timeline: [{ at: reportedAt, text: 'Reported by resident' }, ...(late ? [{ at: received, text: 'Received after the phone was back online' }] : [])],
   };
-  if (photoBufs.length) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    photoBufs.forEach(([buf, ext], i) => { const name = `${r.id}-${i + 1}.${ext}`; fs.writeFileSync(path.join(UPLOAD_DIR, name), buf); r.photos.push(name); });
+  
+  for (let i = 0; i < photoBufs.length; i++) {
+    const [buf, ext] = photoBufs[i];
+    const name = `${r.id}-${i + 1}.${ext}`;
+    await storePhoto(name, buf, ext === 'png' ? 'image/png' : 'image/jpeg');
+    r.photos.push(name);
   }
+
   db.reports.push(r);
   log(`New ${urgency.toLowerCase()} report ${r.id}: ${type}${late ? ' (filed offline)' : ''}`, 'report');
   if (late) notify({ userId: user.id, kind: 'report', title: 'Your saved report was received', body: `${r.id} (${type}) has reached the barangay.`, refId: r.id });
@@ -725,16 +780,85 @@ route('POST', '/api/devices/remove', 'user', ({ body, user }) => {
   user.deviceTokens = (user.deviceTokens || []).filter((t) => t.token !== token); save();
   return { ok: true };
 });
-route('GET', '/api/photos/:name', 'user', ({ params, user }) => {
+route('GET', '/api/photos/:name', 'user', async ({ params, user }) => {
   const name = params.name;
-  const m = /^(EH-\d{4,})-[123]\.(jpg|png)$/.exec(name);
+  const m = /^(EH-\d{4,})-[1-9]\.(jpg|png)$/.exec(name);
   const r = m && db.reports.find((x) => x.id === m[1]);
   if (!r || !(r.photos || []).includes(name) || (user.role !== 'admin' && r.userId !== user.id)) throw new HttpError(404, 'Not found');
-  let buf; try { buf = fs.readFileSync(path.join(UPLOAD_DIR, name)); } catch { throw new HttpError(404, 'Not found'); }
+  const buf = await loadPhoto(name);
+  if (!buf) throw new HttpError(404, 'Not found');
   return { __raw: buf, type: m[2] === 'png' ? 'image/png' : 'image/jpeg' };
 });
 route('GET', '/api/reports/mine', 'user', ({ user }) =>
   db.reports.filter((r) => r.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(residentView));
+// ---- resident answers an admin's "more info" request on the SAME report
+const MAX_TOTAL_PHOTOS = 9, MAX_REPLIES = 10;
+function decodePhotos(raw) {
+  const out = [];
+  for (const p of raw) {
+    if (typeof p !== 'string') continue;
+    const buf = Buffer.from(p.replace(/^data:[^,]*,/, ''), 'base64');
+    if (buf.length < 100 || buf.length > MAX_PHOTO_BYTES) throw bad('Each photo must be under 1.5 MB');
+    const jpg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const png = buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    if (!jpg && !png) throw bad('Photos must be JPEG or PNG images');
+    out.push([buf, jpg ? 'jpg' : 'png']);
+  }
+  return out;
+}
+route('POST', '/api/reports/:id/reply', 'user', async ({ params, body, user }) => {
+  const r = db.reports.find((x) => x.id === params.id && x.userId === user.id);   // not yours = not found
+  if (!r) throw new HttpError(404, 'Report not found');
+
+  // A retry of a reply we already stored: answer success without adding it twice.
+  const clientId = /^[A-Za-z0-9-]{8,64}$/.test(str(body.clientId, 64)) ? str(body.clientId, 64) : '';
+  if (clientId && (r.replyIds || []).includes(clientId)) return residentView(r);
+
+  if (!['NEW', 'VERIFIED', 'DISPATCHED'].includes(r.status)) throw bad('This report is already closed. File a new report if you still need help.');
+  if (!r.infoRequested) throw bad('The barangay is not waiting for more details on this report.');
+  if ((r.replyCount || 0) >= MAX_REPLIES) throw bad('Too many replies on this report. Please call the barangay office.');
+  limit('infoReply', user.id);
+
+  const message = str(body.message, 300);
+  const locationText = str(body.locationText, 200);
+  const { lat, lng } = cleanLatLng(body.lat, body.lng);
+  const photoBufs = decodePhotos(Array.isArray(body.photos) ? body.photos.slice(0, MAX_PHOTOS) : []);
+  if (!message && !locationText && lat === null && !photoBufs.length) throw bad('Add a message, a photo or your location.');
+  if ((r.photos || []).length + photoBufs.length > MAX_TOTAL_PHOTOS) throw bad('This report already has the maximum number of photos.');
+
+  const now = nowIso();
+  // When the phone was offline, keep the moment the resident actually replied (same rule as new reports).
+  const t = Date.parse(body.repliedAt);
+  const at = !Number.isNaN(t) && t <= Date.now() + 5 * 60000 && t >= Date.now() - 7 * 864e5 ? new Date(t).toISOString() : now;
+
+  if (photoBufs.length) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    r.photos = r.photos || [];
+    for (const [buf, ext] of photoBufs) {
+      const name = `${r.id}-${r.photos.length + 1}.${ext}`;
+      fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+      r.photos.push(name);
+    }
+  }
+  if (lat !== null) { r.lat = lat; r.lng = lng; r.outside = outsideArea(lat, lng); }
+  if (locationText) r.locationText = locationText;
+
+  const parts = [];
+  if (message) parts.push(`“${message}”`);
+  if (photoBufs.length) parts.push(`${photoBufs.length} photo${photoBufs.length > 1 ? 's' : ''} added`);
+  if (locationText) parts.push(`location: ${locationText}`);
+  else if (lat !== null) parts.push('GPS location updated');
+  r.timeline.push({ at, text: 'Resident replied – ' + parts.join(' · ') });
+
+  r.infoRequested = null;
+  r.infoRepliedAt = now;
+  r.replyCount = (r.replyCount || 0) + 1;
+  if (clientId) r.replyIds = [...(r.replyIds || []), clientId].slice(-20);
+  r.updatedAt = now;
+  log(`Reporter replied on ${r.id}`, 'report');   // shows in the admin bell feed
+  await save();
+  return residentView(r);
+}, { photoBody: true });
 // Phase 2 (SEC-19): Coarsen public locations for sensitive incident types
 route('GET', '/api/reports/public', 'user', () =>
   db.reports.filter((r) => ['VERIFIED', 'DISPATCHED'].includes(r.status)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -750,6 +874,34 @@ route('GET', '/api/reports/public', 'user', () =>
       };
     })
 );
+
+// ------------------------------------------------------------------ auto-escalation
+// Critical reports nobody has verified within rules.escalateMinutes get escalated and texted.
+function autoEscalate() {
+  const rules = db.settings.rules;
+  if (!rules.autoEscalate) return;
+  const cutoff = Date.now() - (rules.escalateMinutes || 5) * 60000;
+  const to = ((db.settings.escalation.targets || [])[0] || {}).name || 'Higher-level office';
+  const numbers = (process.env.ESCALATION_SMS_TO || '').split(',').map((x) => x.trim()).filter(Boolean);
+  let changed = false;
+  for (const r of db.reports) {
+    if (r.status !== 'NEW' || r.urgency !== 'Critical' || r.autoEscalatedAt || new Date(r.createdAt).getTime() > cutoff) continue;
+    const reason = `Auto-escalated: Critical report not verified after ${rules.escalateMinutes} minutes`;
+    r.autoEscalatedAt = nowIso(); r.updatedAt = nowIso();
+    r.escalations = [...(r.escalations || []), { to, reason, at: nowIso(), by: 'System' }];
+    r.timeline.push({ at: nowIso(), text: `Escalated to ${to}: ${reason} (System)` });
+    log(`${r.id} auto-escalated to ${to}`, 'report');
+    changed = true;
+    if (sms.enabled()) {
+      for (const n of numbers) {
+        sms.send(n, `EHBR ALERT: ${r.id} ${r.type} (Critical) at ${r.locationText || 'GPS location'} is still unverified after ${rules.escalateMinutes} min. Open the admin console.`)
+          .catch((e) => console.error('[sms]', e.message));
+      }
+    }
+  }
+  if (changed) save();
+}
+
 // ---- admin
 // ------------------------------------------------------------------ road blockages (set and cleared by the admin)
 const BLOCK_REASONS = ['Flood', 'Accident', 'Road works', 'Fallen tree', 'Fire', 'Event / parade', 'Other'];
@@ -807,6 +959,9 @@ route('GET', '/api/admin/stats', 'admin', () => {
   const occ = db.centers.reduce((s, c) => s + (c.occupied || 0), 0);
   const statusCounts = Object.fromEntries(STATUSES.map((s) => [s, db.reports.filter((r) => r.status === s).length]));
   return {
+    activeBlockages: db.blockages.filter((x) => !blockExpired(x)).length,
+    totalAnnouncements: db.announcements.length,
+    announcementCounts: db.announcements.reduce((m, a) => { m[a.category] = (m[a.category] || 0) + 1; return m; }, {}),
     activeIncidents: db.reports.filter((r) => r.kind === 'incident' && ['VERIFIED', 'DISPATCHED'].includes(r.status)).length,
     pendingReports: statusCounts.NEW,
     hazardsMonitored: open.filter((r) => r.kind === 'hazard').length,
@@ -823,11 +978,15 @@ route('GET', '/api/admin/stats', 'admin', () => {
 });
 // Phase 2 (SEC-18): Hide identity for anonymous reports
 const adminReport = (r) => { 
+  const { reporterContact, ...rest } = r;   // walk-in numbers are only revealed through the audited /contact route
   const u = db.users.find((x) => x.id === r.userId); 
   if (r.anonymous) {
-    return { ...r, reporterName: 'Anonymous Resident', reporterZone: 'Hidden', reporterContactMasked: '••••' };
+    return { ...rest, reporterName: 'Anonymous Resident', reporterZone: 'Hidden', reporterContactMasked: '••••' };
   }
-  return { ...r, reporterName: fullName(u), reporterZone: (u && u.zone) || '', reporterContactMasked: u ? mask(u.contact) : '' }; 
+  if (!u) {   // walk-in / phone-in report filed by staff for someone without an app account
+    return { ...rest, reporterName: r.reporterName || 'Walk-in reporter', reporterZone: '', reporterContactMasked: reporterContact ? mask(reporterContact) : '' };
+  }
+  return { ...rest, reporterName: fullName(u), reporterZone: u.zone || '', reporterContactMasked: mask(u.contact) }; 
 };
 
 route('GET', '/api/admin/reports', 'admin', ({ query }) => {
@@ -835,15 +994,98 @@ route('GET', '/api/admin/reports', 'admin', ({ query }) => {
   return db.reports.filter((r) => (!st || r.status === st) && (!q || `${r.id} ${r.type} ${r.locationText}`.toLowerCase().includes(q)))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(adminReport);
 });
+// Staff create a report by hand (walk-in or phone call). If the contact number belongs to a registered resident,
+// the report is linked to their account (shows in "My reports" + they get a notification). Otherwise it is a
+// standalone report that still appears on the map/feed once it is verified.
+route('POST', '/api/admin/reports', 'admin', async ({ body, user }) => {
+  const type = str(body.type, 60);
+  if (!ALL_TYPES.includes(type)) throw bad('Choose a valid incident type');
+  const description = str(body.description, 1000);
+  if (description.length < 3) throw bad('Add a short description');
+  const urgency = URGENCIES.includes(body.urgency) ? body.urgency : 'Medium';
+  const locationText = str(body.locationText, 200);
+  const { lat, lng } = cleanLatLng(body.lat, body.lng);
+  if (!locationText && lat === null) throw bad('Add a location (address/landmark or GPS)');
+  const contact = normContact(body.reporterContact);
+  if (contact && !isPhone(contact)) throw bad('Enter a valid contact number, or leave it empty');
+  const resident = contact ? db.users.find((u) => u.role === 'resident' && u.contact === contact) : null;
+  const reporterName = str(body.reporterName, 80);
+  if (!resident && !reporterName) throw bad("Enter the reporter's name");
+  const verified = body.status === 'VERIFIED';
+
+  db.counters.report += 1;
+  const now = nowIso();
+  const r = {
+    id: 'EH-' + String(db.counters.report).padStart(4, '0'), type, kind: kindOf(type), description, urgency,
+    locationText, lat, lng, outside: outsideArea(lat, lng), anonymous: false, status: verified ? 'VERIFIED' : 'NEW',
+    userId: resident ? resident.id : null, assignedTo: '', clientId: '', source: 'admin', filedBy: fullName(user),
+    reportedAt: now, createdAt: now, updatedAt: now, photos: [],
+    timeline: [{ at: now, text: `Filed by barangay staff (${fullName(user)})` }],
+  };
+  if (!resident) { r.reporterName = reporterName; r.reporterContact = contact; }
+  if (verified) r.timeline.push({ at: now, text: `Verified by admin (${fullName(user)})` });
+  db.reports.push(r);
+  log(`${fullName(user)} filed report ${r.id}: ${type}`, 'report');
+  if (resident) notify({ userId: resident.id, kind: 'report', title: 'The barangay filed a report for you', body: `${r.id} (${type}) was recorded by the barangay office. You can follow its progress in the app.`, refId: r.id });
+  if (verified && db.settings.rules.notifyOnVerify) {
+    notify({ kind: 'alert', title: `${type} reported${locationText ? ' – ' + locationText : ''}`,
+      body: 'Verified by the barangay. Stay clear of the area and follow official advisories.', refId: r.id });
+  }
+  await save();
+  return adminReport(r);
+});
+// Reveal the contact number of a report's reporter (audited). Works for walk-ins that have no resident account.
+route('GET', '/api/admin/reports/:id/contact', 'admin', ({ params, user }) => {
+  limit('reveal', user.id);
+  const r = db.reports.find((x) => x.id === params.id);
+  if (!r) throw new HttpError(404, 'Report not found');
+  const u = r.userId ? db.users.find((x) => x.id === r.userId) : null;
+  const contact = u ? u.contact : r.reporterContact;
+  if (!contact) throw new HttpError(404, 'No contact number on this report');
+  log(`${fullName(user)} viewed the contact number for report ${r.id}`, 'audit'); save();
+  return { contact };
+});
+// Address search for the admin map picker. The browser cannot call OpenStreetMap directly (the console's
+// Content-Security-Policy only allows connections to this server), so the server does it.
+// Nominatim's usage policy: at most 1 request per second, identify the app, no search-as-you-type.
+const geoCache = new Map(); let geoNext = 0;
+route('GET', '/api/admin/geocode', 'admin', async ({ query }) => {
+  const text = str(query.get('q') || '', 120), city = str(query.get('city') || '', 80);
+  if (text.length < 3) throw bad('Type at least 3 letters');
+  if (typeof fetch !== 'function') throw new HttpError(503, 'Address search needs Node 18 or newer on the server.');
+  const lookup = async (term) => {
+    const key = term.toLowerCase();
+    if (geoCache.has(key)) return geoCache.get(key);
+    const at = Math.max(Date.now(), geoNext); geoNext = at + 1100;
+    if (at > Date.now()) await new Promise((r) => setTimeout(r, at - Date.now()));
+    const u = new URL('https://nominatim.openstreetmap.org/search');
+    u.search = new URLSearchParams({ format: 'jsonv2', limit: '5', countrycodes: 'ph', q: term }).toString();
+    let res;
+    try { res = await fetch(u, { headers: { 'User-Agent': 'EmergencyHub-Admin/1.0', Accept: 'application/json' }, signal: AbortSignal.timeout(7000) }); }
+    catch { throw new HttpError(503, 'Address search is not reachable right now. Click the map instead.'); }
+    if (!res.ok) throw new HttpError(503, 'Address search is busy. Try again in a moment.');
+    const out = (await res.json()).map((x) => ({ name: str(x.display_name, 200), lat: Number(x.lat), lng: Number(x.lon) }))
+      .filter((x) => Number.isFinite(x.lat) && Number.isFinite(x.lng));
+    if (geoCache.size > 200) geoCache.clear();
+    geoCache.set(key, out);
+    return out;
+  };
+  let out = await lookup(city ? `${text}, ${city}` : text);
+  if (!out.length && city) out = await lookup(text);
+  return out;
+});
 route('POST', '/api/admin/reports/:id/request-info', 'admin', ({ params, body, user }) => {
   const r = db.reports.find((x) => x.id === params.id);
   if (!r) throw new HttpError(404, 'Report not found');
   if (!['NEW', 'VERIFIED', 'DISPATCHED'].includes(r.status)) throw bad('Only open reports can be queried');
+  if (!r.userId) throw bad('This reporter has no app account. Call them instead.');
   const message = str(body.message, 160);
   if (message.length < 5) throw bad('Write a short message for the reporter');
   limit('infoRequest', user.id);
   r.timeline.push({ at: nowIso(), text: `More info requested: “${message}” (${fullName(user)})` });
   r.infoRequested = nowIso();
+  r.infoMessage = message;      // the resident app shows this in the reply sheet
+  r.infoRepliedAt = null;
   r.updatedAt = nowIso();
   log(`More info requested for ${r.id}`, 'report');
   notify({ userId: r.userId, kind: 'report', title: 'The barangay needs more details', body: `About your report ${r.id}: ${message}`, refId: r.id });
@@ -917,6 +1159,7 @@ route('PATCH', '/api/admin/reports/:id', 'admin', async ({ params, body, user })
     
     if (body.status !== r.status) {
       r.status = body.status;
+      r.infoRepliedAt = null;
       if (body.status === 'REJECTED') { r.rejectReason = str(body.reason, 80); r.rejectNote = str(body.note, 300); }
       if (body.status === 'DISPATCHED') {
         if (str(body.team, 60)) { r.assignedTo = str(body.team, 60); r.timeline.push({ at: nowIso(), text: `Assigned to ${r.assignedTo}` }); }
@@ -937,7 +1180,7 @@ route('PATCH', '/api/admin/reports/:id', 'admin', async ({ params, body, user })
         RESOLVED: ['Report resolved', `Your report ${r.id} (${r.type}) has been marked resolved.`],
         REJECTED: ['Report not accepted', `Your report ${r.id} could not be accepted${r.rejectReason ? ': ' + r.rejectReason : ''}.${r.rejectNote ? ' ' + r.rejectNote : ''} If it is an emergency, call ${db.settings.sos.number}.`],
       }[body.status];
-      if (msg && !(body.status === 'RESOLVED' && body.notifyReporter === false)) notify({ userId: r.userId, kind: 'report', title: msg[0], body: msg[1], refId: r.id });
+      if (msg && r.userId && !(body.status === 'RESOLVED' && body.notifyReporter === false)) notify({ userId: r.userId, kind: 'report', title: msg[0], body: msg[1], refId: r.id });
       if (body.status === 'VERIFIED' && db.settings.rules.notifyOnVerify) {
         notify({ kind: 'alert', title: `${r.type} reported${r.locationText ? ' – ' + r.locationText : ''}`,
           body: 'Verified by the barangay. Stay clear of the area and follow official advisories.', refId: r.id });
@@ -1024,23 +1267,38 @@ route('DELETE', '/api/admin/residents/:id', 'admin', ({ params, user }) => {
   return { ok: true };
 });
 
-route('POST', '/api/admin/announcements', 'admin', ({ body, user }) => {
+route('POST', '/api/admin/announcements', 'admin', ({ req, body, user }) => {
   limit('announcement', user.id);
   const category = ['alert', 'advisory', 'event'].includes(body.category) ? body.category : null;
   const title = str(body.title, 100), text = str(body.body, 2000);
   if (!category) throw bad('Choose a category');
   if (!title || !text) throw bad('Title and message are required');
   const a = { id: newId(), category, title, body: text, createdAt: nowIso(), author: fullName(user) };
+  // Optional picture (the admin page shrinks it to a JPEG first). Only real JPEG / PNG / WebP files are kept.
+  if (typeof body.image === 'string' && body.image) {
+    const buf = Buffer.from(body.image.replace(/^data:[^,]*,/, ''), 'base64');
+    if (buf.length < 100 || buf.length > ANN_IMG_MAX) throw bad('The image must be under 2 MB');
+    const jpg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const png = buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const webp = buf.slice(0, 4).toString('latin1') === 'RIFF' && buf.slice(8, 12).toString('latin1') === 'WEBP';
+    if (!jpg && !png && !webp) throw bad('The image must be a JPEG, PNG or WebP file');
+    const name = `ann-${a.id}.${jpg ? 'jpg' : png ? 'png' : 'webp'}`;
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+    a.image = name;
+  }
   db.announcements.push(a);
   log(`Announcement sent: ${title}`, 'announcement');
   notify({ kind: 'announcement', category, title, body: text, refId: a.id, sendPush: body.push !== false });
   save();
-  return a;
-});
+  return withImageUrl(a, publicBase(req));
+}, { photoBody: true });
 route('DELETE', '/api/admin/announcements/:id', 'admin', ({ params }) => {
   const i = db.announcements.findIndex((a) => a.id === params.id);
   if (i < 0) throw new HttpError(404, 'Not found');
-  db.announcements.splice(i, 1); save(); return { ok: true };
+  const [gone] = db.announcements.splice(i, 1);
+  if (gone.image) { try { fs.unlinkSync(path.join(UPLOAD_DIR, gone.image)); } catch { /* already gone */ } }
+  save(); return { ok: true };
 });
 
 function cleanCenter(b, existing = {}) {
@@ -1079,6 +1337,18 @@ route('PUT', '/api/admin/settings', 'admin', ({ body, user }) => {
   Object.assign(db.settings, cleanSettings(body));
   log(`${fullName(user)} updated settings`, 'settings'); save();
   return db.settings;
+});
+
+// ------------------------------------------------------------------ backup & restore (see backup.js)
+require('./backup').register({
+  route, HttpError, pg, save, log, nowIso, fullName, checkPw, limiter, maintenance, UPLOAD_DIR, DATA_FILE, emptyDb, normalize,
+  getDb: () => db, setDb: (d) => { db = d; },
+});
+
+// ------------------------------------------------------------------ reports generator (see reportgen.js)
+require('./reportgen').register({
+  route, HttpError, save, log, nowIso, fullName, checkPw, limiter, ALL_TYPES, URGENCIES, STATUSES,
+  getDb: () => db,
 });
 
 // ------------------------------------------------------------------ static admin console
@@ -1123,6 +1393,7 @@ const server = http.createServer(async (req, res) => {
       return serveStatic(req, res, url.pathname);
     }
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
+    if (maintenance.on && !/^\/api\/(health|admin\/backups\/status)$/.test(url.pathname)) throw new HttpError(503, 'The system is being restored from a backup. Please try again in a minute.', 10);
     const ip = ipOf(req);
     const who = userFromReq(req);
     if (who) limit('userAll', who.id); else limit('anonIp', ip);
@@ -1135,6 +1406,7 @@ const server = http.createServer(async (req, res) => {
       if (r.auth === 'admin' && user.role !== 'admin') throw new HttpError(403, 'Admins only');
       const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req, (r.photoBody && req.headers.authorization) ? 7 * 1024 * 1024 : 100000) : {};
       const out = await r.handler({ req, res, ip, params: m.groups || {}, body, user, query: url.searchParams });
+      if (out && out.__handled) return;   // the handler already wrote the response (streamed file)
       if (out && out.__raw) return send(res, 200, out.__raw, { ...cors, 'Content-Type': out.type });
       return send(res, 200, out, cors);
     }
@@ -1173,8 +1445,9 @@ async function start() {
   }
   server.headersTimeout = 10000; server.requestTimeout = 15000; server.keepAliveTimeout = 5000;
   server.listen(PORT, () => {
-  console.log(`Emergency Hub server running:\n  Admin console  http://localhost:${PORT}/admin/\n  API            http://localhost:${PORT}/api/\n  Storage        ${pg ? 'PostgreSQL (DATABASE_URL)' : 'file ' + DATA_FILE}\n  Push           ${push.enabled() ? 'on (Firebase)' : 'off – see README to switch it on'}\n  Email codes    ${mailer.enabled() ? 'on' : 'off – password resets go through the barangay office (see README)'}`);
-});
+    setInterval(autoEscalate, 60000);
+    console.log(`Emergency Hub server running:\n  Admin console  http://localhost:${PORT}/admin/\n  API            http://localhost:${PORT}/api/\n  Storage        ${pg ? 'PostgreSQL (DATABASE_URL)' : 'file ' + DATA_FILE}\n  Push           ${push.enabled() ? 'on (Firebase)' : 'off – see README to switch it on'}\n  Email codes    ${mailer.enabled() ? 'on' : 'off – password resets go through the barangay office (see README)'}`);
+  });
 }
 
 // Write any pending changes to PostgreSQL before the process stops.
