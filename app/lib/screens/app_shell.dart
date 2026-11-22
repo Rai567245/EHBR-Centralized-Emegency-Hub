@@ -32,6 +32,11 @@ class _AppShellState extends State<AppShell>
   int _unread = 0;
   int _reportsRequest = 0;
 
+  /// A tapped notification can open one specific announcement or report.
+  String? _openNewsId;
+  int _newsRequest = 0;
+  String? _openReportId;
+
   Timer? _poll;
   Timer? _flushTimer;
 
@@ -214,7 +219,7 @@ class _AppShellState extends State<AppShell>
   Future<void> _openNotifications() async {
     if (!mounted) return;
 
-    final tab = await Navigator.of(context).push<int>(
+    final target = await Navigator.of(context).push<NotificationTarget>(
       MaterialPageRoute(
         builder: (_) => const NotificationsScreen(),
       ),
@@ -224,9 +229,57 @@ class _AppShellState extends State<AppShell>
 
     setState(() => _unread = 0);
 
-    if (tab != null) {
-      _select(tab);
+    if (target == null) return;
+
+    final id = target.refId.isEmpty ? null : target.refId;
+    setState(() {
+      if (target.kind == 'announcement' && id != null) {
+        _openNewsId = id;
+        _newsRequest++;
+      } else if (target.kind == 'report' && id != null) {
+        _openReportId = id;
+        _reportsRequest++;
+      }
+    });
+
+    _select(target.tab);
+
+    // The tab has picked the request up by the next frame; clear it so it is
+    // not repeated when the tab is rebuilt later.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _openNewsId = null;
+          _openReportId = null;
+        });
+      }
+    });
+  }
+
+  /// Opens the News tab, on one announcement when [id] is given (tapped on Home).
+  void _openNews(String? id) {
+    if (id != null) {
+      setState(() {
+        _openNewsId = id;
+        _newsRequest++;
+      });
     }
+    _select(3);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _openNewsId = null);
+    });
+  }
+
+  /// Opens My Reports (Profile tab), on one report when [id] is given.
+  void _openReport(String? id) {
+    setState(() {
+      _openReportId = id;
+      _reportsRequest++;
+    });
+    _select(4);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _openReportId = null);
+    });
   }
 
   void _select(int i) {
@@ -268,7 +321,10 @@ class _AppShellState extends State<AppShell>
                   _tokens[4]++;
                 }),
                 onViewReports: () {
-                  setState(() => _reportsRequest++);
+                  setState(() {
+                    _openReportId = null;
+                    _reportsRequest++;
+                  });
                   _select(4);
                 },
               )
@@ -278,14 +334,21 @@ class _AppShellState extends State<AppShell>
                   _reporting = true;
                   _reportType = type;
                 }),
-                onOpenNews: () => _select(3),
+                onOpenNews: _openNews,
+                onOpenReports: _openReport,
+                onOpenMap: () => _select(1),
               ),
         MapScreen(reloadToken: _tokens[1]),
         ContactsScreen(reloadToken: _tokens[2]),
-        NewsTab(reloadToken: _tokens[3]),
+        NewsTab(
+          reloadToken: _tokens[3],
+          openId: _openNewsId,
+          openRequest: _newsRequest,
+        ),
         ProfileTab(
           reloadToken: _tokens[4],
           openReportsRequest: _reportsRequest,
+          openReportId: _openReportId,
         ),
       ];
 
@@ -350,7 +413,7 @@ class _AppShellState extends State<AppShell>
             left: 0,
             right: 0,
             bottom: 0,
-            height: 130,
+            height: 150,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -361,7 +424,7 @@ class _AppShellState extends State<AppShell>
                       Colors.white.withValues(alpha: 0),
                       Colors.white,
                     ],
-                    stops: const [0, .5],
+                    stops: const [0, .6],
                   ),
                 ),
               ),

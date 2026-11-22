@@ -63,21 +63,77 @@
       <label class="search"><svg class="icon "><use href="#i-search"/></svg><input id="globalSearch" type="search" placeholder="Search reports (press Enter)"></label>
       <a class="icon-btn" href="reports.html" aria-label="Reports"><svg class="icon "><use href="#i-bell"/></svg><span class="bell-dot" hidden></span></a>
     </header>
-    <main class="an">
-      <section class="card an__form"><div class="card__header"><h2 class="card__title">New announcement</h2></div>
-        <form class="form-grid" id="anForm" novalidate style="margin-top:0">
-          <label class="fld full"><span>Category <em>*</em></span><select id="anCat"><option value="alert">Alert – urgent, affects safety now</option><option value="advisory">Advisory – weather, preparedness</option><option value="event">Event – community news</option></select></label>
-          <label class="fld full"><span>Title <em>*</em></span><input class="input" id="anTitle" maxlength="100" required></label>
-          <label class="fld full"><span>Message <em>*</em></span><textarea id="anBody" maxlength="2000" required></textarea></label>
-          <div class="full" style="display:flex;align-items:center;gap:10px"><label class="toggle"><input type="checkbox" id="anPush" checked aria-label="Send push notification"><i></i></label><span style="font-size:12px;font-weight:600">Also send as a push notification</span></div>
-          <p class="sec__sub full" id="pushStatus" style="margin:0"></p>
-          <p class="form-error" id="anErr" hidden></p>
-          <div class="modal__actions"><button class="btn btn--primary btn--fit" type="submit"><svg class="icon "><use href="#i-mega"/></svg>Send to residents</button></div>
-        </form></section>
-      <section class="an__list" id="anList"></section></main>
+    <main class="an anx">
+      <section class="card anx-form" aria-labelledby="anFormTitle">
+        <div>
+          <h2 class="card__title" id="anFormTitle">New announcement</h2>
+          <p class="sec__sub">Residents see it in the app’s News tab right away.</p>
+        </div>
+        <form class="anx-fields" id="anForm" novalidate>
+          <div class="anx-field" role="radiogroup" aria-labelledby="anCatLbl">
+            <div class="anx-lbl"><span id="anCatLbl">Category <em>*</em></span></div>
+            <div class="anx-seg">
+              <label class="anx-seg__opt anx-seg--alert"><input type="radio" name="anCat" value="alert" checked><span><i></i>Alert</span></label>
+              <label class="anx-seg__opt anx-seg--advisory"><input type="radio" name="anCat" value="advisory"><span><i></i>Advisory</span></label>
+              <label class="anx-seg__opt anx-seg--event"><input type="radio" name="anCat" value="event"><span><i></i>Event</span></label>
+            </div>
+            <p class="anx-hint" id="anCatHint">Urgent – affects safety right now.</p>
+          </div>
+
+          <div class="anx-field">
+            <div class="anx-lbl"><label for="anTitle">Title <em>*</em></label><small id="anTitleN">0/100</small></div>
+            <input class="input" id="anTitle" maxlength="100" required placeholder="e.g. Scheduled power interruption">
+          </div>
+
+          <div class="anx-field">
+            <div class="anx-lbl"><label for="anBody">Message <em>*</em></label><small id="anBodyN">0/2000</small></div>
+            <textarea class="input" id="anBody" maxlength="2000" required placeholder="What do residents need to know or do?"></textarea>
+          </div>
+
+          <div class="anx-field">
+            <div class="anx-lbl"><span>Image <small>(optional)</small></span></div>
+            <input type="file" id="anImg" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="anx-drop" type="button" id="anImgPick">
+              <span class="anx-drop__ico"><svg class="icon"><use href="#i-img"/></svg></span>
+              <span><b>Add an image</b><small>PNG, JPG or WebP · up to 8 MB · shown as a thumbnail in the app</small></span>
+            </button>
+            <div class="anx-pick" id="anImgBox" hidden>
+              <img id="anImgPrev" alt="Selected image preview">
+              <div class="anx-pick__info"><b id="anImgName">image</b><small id="anImgSize"></small></div>
+              <button class="btn btn--danger btn--fit" type="button" id="anImgClear">Remove</button>
+            </div>
+          </div>
+
+          <div class="anx-field">
+            <div class="anx-lbl"><span>Preview</span><small>How residents will see it</small></div>
+            <div class="anx-prev" id="anPrev" aria-hidden="true"></div>
+          </div>
+
+          <div class="anx-push" id="anPushBox">
+            <label class="anx-push__row">
+              <span class="toggle"><input type="checkbox" id="anPush" checked><i></i></span>
+              <b>Also send as a push notification</b>
+            </label>
+            <p class="anx-hint" id="pushStatus"></p>
+          </div>
+
+          <p class="form-error" id="anErr" role="alert" hidden></p>
+          <button class="btn btn--primary anx-send" type="submit" id="anSend"><svg class="icon"><use href="#i-mega"/></svg>Send to residents</button>
+        </form>
+      </section>
+
+      <section class="anx-feed" id="anFeed" aria-label="Sent announcements" aria-live="polite">
+        <div class="anx-main"><span class="skeleton" style="width:30%"></span><span class="skeleton" style="width:70%"></span><span class="skeleton" style="width:90%"></span></div>
+      </section>
+    </main>
+    <dialog class="anx-lb" id="anLb" aria-label="Announcement image">
+      <button class="anx-lb__x" type="button" id="anLbX" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
+      <img id="anLbImg" alt="">
+    </dialog>
   </div>
 </div>
 <script src="app.js"></script>
 <script src="pages/announcements.js"></script>
+<script src="sidebar.js"></script>
 </body>
 </html>

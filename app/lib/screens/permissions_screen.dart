@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,8 +17,9 @@ Future<bool> permissionsIntroSeen() async {
 }
 
 /// Permission introduction shown on first launch.
-/// Location is handled here; notification permission remains handled
-/// by the app after sign-in.
+/// Location is handled here. Camera and photo access is introduced here and
+/// the system prompt appears the first time a photo is added to a report.
+/// Notification permission remains handled by the app after sign-in.
 class PermissionsScreen extends StatefulWidget {
   const PermissionsScreen({
     super.key,
@@ -56,6 +56,18 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       allow: 'Allow Location',
     ),
     (
+      icon: Icons.photo_camera_outlined,
+      title: 'Add photos to reports',
+      text:
+          'Photos help barangay responders understand what is happening before they arrive.',
+      points: [
+        'Take a photo of the incident',
+        'Attach pictures from your gallery',
+        'You choose what to share each time',
+      ],
+      allow: 'Allow Camera & Photos',
+    ),
+    (
       icon: Icons.notifications_none_rounded,
       title: 'Turn on alerts',
       text:
@@ -90,7 +102,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       } catch (_) {}
     }
 
-    // The notification prompt is handled by the app after sign-in.
+    // The camera / photos prompt appears when a photo is first added to a
+    // report, and the notification prompt is handled by the app after sign-in.
     if (_step >= _pages.length - 1) {
       await _finish();
     } else if (mounted) {

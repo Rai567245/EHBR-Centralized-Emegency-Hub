@@ -6,7 +6,16 @@ import '../theme.dart';
 /// Loads data once, shows a spinner / error with retry, and re-loads quietly
 /// whenever [reloadToken] changes (used when the user comes back to a tab).
 class AsyncBody<T> extends StatefulWidget {
-  const AsyncBody({super.key, required this.load, required this.builder, this.reloadToken = 0});
+  const AsyncBody({
+    super.key,
+    required this.load,
+    required this.builder,
+    this.reloadToken = 0,
+    this.placeholder,
+  });
+
+  /// Shown instead of the spinner while the first load runs (e.g. a skeleton).
+  final Widget? placeholder;
 
   final Future<T> Function() load;
   final Widget Function(BuildContext context, T data, Future<void> Function() refresh) builder;
@@ -63,7 +72,10 @@ class _AsyncBodyState<T> extends State<AsyncBody<T>> {
   @override
   Widget build(BuildContext context) {
     if (_hasData) return widget.builder(context, _data as T, _fetch);
-    if (_loading) return const Center(child: CircularProgressIndicator(color: EhbrColors.muted));
+    if (_loading) {
+      return widget.placeholder ??
+          const Center(child: CircularProgressIndicator(color: EhbrColors.muted));
+    }
     final msg = _error is ApiException ? (_error as ApiException).message : 'Something went wrong.';
     return Center(
       child: Padding(

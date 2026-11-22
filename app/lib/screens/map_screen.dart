@@ -277,9 +277,11 @@ class _MapScreenState extends State<MapScreen> {
           _Item(
             r.kind.toLowerCase() == 'incident' ? _Kind.incident : _Kind.hazard,
             r.type,
-            r.locationText.isEmpty
-                ? 'Location shared with responders'
-                : r.locationText,
+            r.locationText.isNotEmpty
+                ? r.locationText
+                : (r.lat != null && r.lng != null)
+                    ? 'Pinned on the map'
+                    : 'Location shared with responders',
             'Reported ${ago(r.createdAt)}',
             _reportStatus(r.status),
             r.lat,
@@ -337,7 +339,9 @@ class _MapScreenState extends State<MapScreen> {
       builder: (sheetContext) {
         return _MapPreviewSheet(
           item: item,
-          onDirections: item.hasPoint
+          // Directions only for evacuation centers and blocked roads.
+          // Nobody should be sent toward an active incident or hazard.
+          onDirections: item.hasPoint && !item.isReport
               ? () {
                   Navigator.pop(sheetContext);
                   openDirections(item.lat!, item.lng!);
@@ -639,6 +643,335 @@ class _MapScreenState extends State<MapScreen> {
 }
 
 // ------------------------------------------------------------
+// SAFETY ADVICE (incidents and hazards)
+// ------------------------------------------------------------
+
+class _Advice {
+  const _Advice(this.lead, this.tips);
+
+  final String lead;
+  final List<String> tips;
+}
+
+/// Short, general safety advice for a report type. Matching is by keyword,
+/// like [_reportIcon], so it still works if the wording varies slightly.
+_Advice _adviceFor(String type, _Kind kind) {
+  final t = type.toLowerCase();
+  bool has(List<String> words) => words.any(t.contains);
+
+  if (has(['wire', 'electric', 'power line'])) {
+    return const _Advice(
+      'Treat any fallen wire as live, even if it looks dead.',
+      [
+        'Stay at least 10 metres away and keep children and pets back.',
+        'Never touch the wire or anything touching it, such as puddles, fences, vehicles or tree branches.',
+        'Do not try to move it. Wait for the power company or the barangay.',
+        'Warn people who are walking or driving toward it.',
+      ],
+    );
+  }
+  if (has(['fire', 'smoke', 'burn', 'explosion'])) {
+    return const _Advice(
+      'Responders are handling this. Keep away so fire trucks can get through.',
+      [
+        'Do not stop to watch or film, and keep the road clear for fire trucks and ambulances.',
+        'If smoke reaches you, cover your nose and mouth with a damp cloth and move upwind.',
+        'If you live or work close by, get ready to leave and follow barangay instructions.',
+        'Never go back in for people or belongings. Tell responders if someone is missing.',
+      ],
+    );
+  }
+  if (has(['accident', 'crash', 'collision', 'vehicular'])) {
+    return const _Advice(
+      'Responders are already informed. Use another route.',
+      [
+        'Avoid the road and give way to ambulances and other emergency vehicles.',
+        'Slow down near the scene. Do not crowd it or block the way.',
+        'Do not move anyone who is hurt unless they are in immediate danger.',
+        'If you are at the scene and someone needs help that has not arrived, use SOS.',
+      ],
+    );
+  }
+  if (has(['flood', 'water level', 'storm surge'])) {
+    return const _Advice(
+      'Floodwater is harder to judge than it looks.',
+      [
+        'Do not walk or drive through floodwater. A few inches can hide holes and carry you off.',
+        'Move valuables and appliances higher, and unplug them if it is safe to do so.',
+        'Stay away from fallen wires, open drains and manholes in flooded streets.',
+        'Check the Evacuate tab for open evacuation centers if the water is rising.',
+      ],
+    );
+  }
+  if (has(['medical', 'injur', 'ambulance', 'unconscious', 'heart', 'sick'])) {
+    return const _Advice(
+      'Responders already know about this. Its exact location is kept private.',
+      [
+        'Do not go to the area unless responders ask for help.',
+        'Keep nearby roads clear for the ambulance.',
+        'If you are trained in first aid and are nearby, tell the barangay so they can reach you.',
+        'If you or someone near you needs help, use SOS.',
+      ],
+    );
+  }
+  if (has(['crime', 'theft', 'robbery', 'assault', 'violence', 'threat', 'shooting', 'fight'])) {
+    return const _Advice(
+      'Responders are handling this. Its exact location is kept private.',
+      [
+        'Stay away from the area. Do not confront or follow anyone.',
+        'If you live nearby, stay indoors and keep doors locked.',
+        'Do not share unconfirmed details or photos of suspects online.',
+        'If you saw something that could help, send it to the barangay as a report.',
+      ],
+    );
+  }
+  if (has(['tree'])) {
+    return const _Advice(
+      'A fallen or leaning tree can shift again, especially in wind or rain.',
+      [
+        'Keep away from the tree and anything it is touching, especially wires.',
+        'Do not walk or park under leaning trees or loose branches.',
+        'Use another route until the barangay says the road is clear.',
+      ],
+    );
+  }
+  if (has(['drain', 'canal', 'clog'])) {
+    return const _Advice(
+      'Water may rise quickly on this street when it rains.',
+      [
+        'Avoid standing water near the drain, and keep away from fast-moving water.',
+        'Do not try to clear it yourself while water is flowing.',
+        'Do not throw trash into drains or canals.',
+      ],
+    );
+  }
+  if (has(['manhole'])) {
+    return const _Advice(
+      'An open manhole is easy to miss, especially at night or under floodwater.',
+      [
+        'Keep well away from it, and slow down if you are driving or riding nearby.',
+        'Do not cover it with loose items. They can hide the opening or slip.',
+        'Warn others, especially children and people walking in the dark.',
+      ],
+    );
+  }
+  if (has(['structure', 'building', 'wall', 'collapse', 'damage'])) {
+    return const _Advice(
+      'Damaged walls and roofs can fall without warning.',
+      [
+        'Stay away from the structure and from falling debris.',
+        'Do not enter it, and keep children and pets back.',
+        'Do not park or stand beside it, especially in strong wind or rain.',
+      ],
+    );
+  }
+
+  return kind == _Kind.hazard
+      ? const _Advice(
+          'Stay clear of this area until the barangay says it is safe.',
+          [
+            'Keep away from the marked location and use another route.',
+            'Warn people who are heading toward it.',
+            'If the situation gets worse, send a new report.',
+          ],
+        )
+      : const _Advice(
+          'Responders have been informed. Keep away so they can work.',
+          [
+            'Avoid the area and keep the road clear for emergency vehicles.',
+            'Follow instructions from the barangay and responders.',
+            'If you are in danger yourself, use SOS.',
+          ],
+        );
+}
+
+/// Advice for an evacuation center, depending on whether it is open and how full it is.
+_Advice _centerAdvice(EvacCenter c) {
+  final open = c.status.toLowerCase() == 'open';
+  final nearlyFull = c.capacity > 0 && c.occupied / c.capacity >= .9;
+
+  if (!open) {
+    return const _Advice(
+      'This center is on standby and is not taking residents yet.',
+      [
+        'Wait for the barangay to announce that it is open before you go.',
+        'Prepare an emergency bag now: IDs, medicines, water, phone, power bank and clothes.',
+        'Check the Blocked tab for closed roads and plan your route.',
+        'If you are told to evacuate, go to a center that is open.',
+      ],
+    );
+  }
+  return _Advice(
+    nearlyFull
+        ? 'This center is almost full. Staff may send you to another one.'
+        : 'This center is open and taking residents.',
+    const [
+      'Take the safest route and check the Blocked tab for closed roads first.',
+      'Bring IDs, medicines, drinking water, a phone with a power bank, clothes, and anything your baby or senior family members need.',
+      'Register with the center staff at the entrance so the barangay can account for you.',
+      'Follow staff instructions and keep aisles and exits clear.',
+    ],
+  );
+}
+
+/// Advice for a blocked road, by the reason it is blocked.
+_Advice _blockageAdvice(Blockage b) {
+  final t = b.reason.toLowerCase();
+  bool has(List<String> words) => words.any(t.contains);
+
+  const common = 'Do not drive around barriers or cones. Choose another route before you leave.';
+
+  if (has(['flood'])) {
+    return const _Advice(
+      'This road is flooded. Do not cross it.',
+      [
+        'Do not walk or drive through floodwater, even if it looks shallow.',
+        'Use a road on higher ground and allow extra time.',
+        common,
+      ],
+    );
+  }
+  if (has(['works', 'repair', 'construction'])) {
+    return const _Advice(
+      'This road is closed for road works.',
+      [
+        'Follow signs and the signals of workers on site.',
+        'Expect delays on nearby roads and allow extra time.',
+        common,
+      ],
+    );
+  }
+  if (has(['accident', 'crash', 'collision', 'fire'])) {
+    return const _Advice(
+      'Responders are on the scene. Keep the road clear for them.',
+      [
+        'Give way to ambulances and fire trucks.',
+        'Do not stop to watch or film.',
+        common,
+      ],
+    );
+  }
+  if (has(['tree'])) {
+    return const _Advice(
+      'A fallen tree is blocking this road.',
+      [
+        'Keep away from the tree and anything it is touching, especially wires.',
+        'Do not try to move it yourself.',
+        common,
+      ],
+    );
+  }
+  if (has(['event', 'parade'])) {
+    return const _Advice(
+      'This road is closed for an event.',
+      [
+        'Expect the road to stay closed until the event ends.',
+        'Allow extra time and watch for people crossing nearby.',
+        common,
+      ],
+    );
+  }
+  return const _Advice(
+    'This road is closed. Use another route.',
+    [
+      'Allow extra time for your trip.',
+      'Follow the instructions of the barangay and traffic personnel.',
+      common,
+    ],
+  );
+}
+
+/// Picks the advice for whatever the sheet is showing.
+_Advice _adviceForItem(_Item item) {
+  if (item.isCenter) return _centerAdvice(item.center!);
+  if (item.isBlockage) return _blockageAdvice(item.blockage!);
+  return _adviceFor(item.tag, item.kind);
+}
+
+/// The advice, shown inside the preview sheet itself (no second sheet).
+class _AdviceCard extends StatelessWidget {
+  const _AdviceCard({required this.item});
+
+  final _Item item;
+
+  @override
+  Widget build(BuildContext context) {
+    final advice = _adviceForItem(item);
+    final isHazard = item.kind == _Kind.hazard;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _mapBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isHazard
+                    ? Icons.warning_amber_rounded
+                    : Icons.health_and_safety_outlined,
+                size: 17,
+                color: EhbrColors.ink,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isHazard ? 'Avoid this area' : 'What to do',
+                style: manrope(13, FontWeight.w800, EhbrColors.ink),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            advice.lead,
+            style: manrope(12, FontWeight.w600, EhbrColors.ink)
+                .copyWith(height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          for (final tip in advice.tips)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        color: EhbrColors.muted,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      tip,
+                      style: manrope(11.5, FontWeight.w500, EhbrColors.ink)
+                          .copyWith(height: 1.45),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Text(
+            'General advice. Follow the barangay and responders.',
+            style: manrope(10, FontWeight.w500, EhbrColors.muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------
 // INTERACTIVE PREVIEW BOTTOM SHEET
 // ------------------------------------------------------------
 
@@ -654,6 +987,10 @@ class _MapPreviewSheet extends StatelessWidget {
   final VoidCallback? onSos;
 
   Color get _categoryColor => _kindColor(item.kind);
+
+  // For an evacuation center the name is the most useful thing to show.
+  String get _headerTitle => item.isCenter ? item.tag : _title;
+  String get _headerSubtitle => item.isCenter ? 'Evacuation Center' : item.place;
 
   IconData get _categoryIcon => item.icon;
 
@@ -736,58 +1073,49 @@ class _MapPreviewSheet extends StatelessWidget {
     );
   }
 
-  Widget _primaryButton({
+  /// Small outlined action pill that sits beside the badges.
+  Widget _actionPill({
     required String label,
     required IconData icon,
     required Color color,
     required VoidCallback? onTap,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 46,
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(
-          label,
-          style: manrope(13, FontWeight.w700, Colors.white),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: color.withValues(alpha: .4),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+    return Material(
+      color: Colors.white,
+      shape: StadiumBorder(side: BorderSide(color: color)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 6),
+              Text(label, style: manrope(10, FontWeight.w700, color)),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _secondaryButton({
-    required String label,
-    required IconData icon,
-    required VoidCallback? onTap,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 46,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(
-          label,
-          style: manrope(13, FontWeight.w700, EhbrColors.ink),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: EhbrColors.ink,
-          side: const BorderSide(color: _mapBorder),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+  /// Evacuation centers: the name is the sheet title, so the badge row only
+  /// holds the status (left) and the Get Directions pill (right).
+  Widget _centerBadgeRow() {
+    return Row(
+      children: [
+        _badge(item.status, dot: _statusColorFor(item.status)),
+        const Spacer(),
+        if (onDirections != null)
+          _actionPill(
+            label: 'Get Directions',
+            icon: Icons.directions_outlined,
+            color: EhbrColors.ink,
+            onTap: onDirections,
           ),
-        ),
-      ),
+      ],
     );
   }
 
@@ -803,8 +1131,7 @@ class _MapPreviewSheet extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle(sectionLabel),
-        _infoRow(Icons.category_outlined, 'Category', r.type),
-        _infoRow(Icons.verified_outlined, 'Status', item.status),
+        // Category and status are already shown as the badges above.
         _infoRow(Icons.priority_high_rounded, 'Urgency', r.urgency),
         _infoRow(
           Icons.calendar_today_outlined,
@@ -814,8 +1141,14 @@ class _MapPreviewSheet extends StatelessWidget {
         _infoRow(
           Icons.location_on_outlined,
           'Location',
-          r.locationText.isEmpty ? 'Location not provided' : r.locationText,
+          r.locationText.isNotEmpty
+              ? r.locationText
+              : item.hasPoint
+                  ? 'Pinned on the map'
+                  : 'Location not provided',
         ),
+        const SizedBox(height: 4),
+        _AdviceCard(item: item),
       ],
     );
   }
@@ -881,6 +1214,8 @@ class _MapPreviewSheet extends StatelessWidget {
             'Occupancy information is currently unavailable.',
             style: manrope(11, FontWeight.w500, EhbrColors.muted),
           ),
+        const SizedBox(height: 16),
+        _AdviceCard(item: item),
       ],
     );
   }
@@ -914,6 +1249,8 @@ class _MapPreviewSheet extends StatelessWidget {
             style: manrope(11, FontWeight.w500, EhbrColors.ink),
           ),
         ],
+        const SizedBox(height: 16),
+        _AdviceCard(item: item),
       ],
     );
   }
@@ -921,9 +1258,11 @@ class _MapPreviewSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * .72,
-      ),
+      // One fixed height for every type, so the sheet never jumps around.
+      // Short details leave white space; long details scroll.
+      height: MediaQuery.of(context).size.height * .72,
+      // Keeps the last line and the bottom button above the home indicator.
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(
@@ -931,7 +1270,6 @@ class _MapPreviewSheet extends StatelessWidget {
         ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Drag handle.
           Padding(
@@ -970,12 +1308,14 @@ class _MapPreviewSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _title,
+                        _headerTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: manrope(15, FontWeight.w800, EhbrColors.ink),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        item.place,
+                        _headerSubtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: manrope(11, FontWeight.w500, EhbrColors.muted),
@@ -1001,20 +1341,53 @@ class _MapPreviewSheet extends StatelessWidget {
 
           const Divider(height: 1, color: _mapBorder),
 
-          // Scrollable details.
-          Flexible(
+          // Scrollable details (scrolls only when the content is longer).
+          Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Category and status badges.
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  if (item.isCenter)
+                    _centerBadgeRow()
+                  else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _badge(item.tag),
-                      _badge(item.status, dot: _statusColorFor(item.status)),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _badge(item.tag),
+                            _badge(
+                              item.status,
+                              dot: _statusColorFor(item.status),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (item.isReport) ...[
+                        const SizedBox(width: 8),
+                        // SOS stays one tap away, but is not the main action
+                        // for someone who is only reading another report.
+                        _actionPill(
+                          label: 'In danger? Call SOS',
+                          icon: Icons.phone_outlined,
+                          color: _mapRed,
+                          onTap: onSos,
+                        ),
+                      ] else if (onDirections != null) ...[
+                        const SizedBox(width: 8),
+                        _actionPill(
+                          label: 'Get Directions',
+                          icon: Icons.directions_outlined,
+                          color: EhbrColors.ink,
+                          onTap: onDirections,
+                        ),
+                      ],
                     ],
                   ),
 
@@ -1027,32 +1400,6 @@ class _MapPreviewSheet extends StatelessWidget {
                   else if (item.isBlockage)
                     _buildBlockageContent(),
 
-                  const SizedBox(height: 8),
-
-                  // Actions.
-                  if (item.isReport) ...[
-                    _primaryButton(
-                      label: 'Call SOS',
-                      icon: Icons.sos_rounded,
-                      color: _mapRed,
-                      onTap: onSos,
-                    ),
-                    const SizedBox(height: 8),
-                    _secondaryButton(
-                      label: 'Get Directions',
-                      icon: Icons.directions_outlined,
-                      onTap: onDirections,
-                    ),
-                  ] else if (item.isCenter || item.isBlockage) ...[
-                    _primaryButton(
-                      label: 'Get Directions',
-                      icon: Icons.directions_outlined,
-                      color: EhbrColors.ink,
-                      onTap: onDirections,
-                    ),
-                  ],
-
-                  const SizedBox(height: 6),
                 ],
               ),
             ),
@@ -1266,10 +1613,13 @@ class _Row extends StatelessWidget {
               ),
               const SizedBox(width: 10),
 
-              // Status pill. Tapping it still opens directions, as before.
+              // Status pill. Tapping it opens directions for evacuation centers
+              // and blocked roads only, never toward an incident or hazard.
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: i.hasPoint ? () => openDirections(i.lat!, i.lng!) : null,
+                onTap: i.hasPoint && !i.isReport
+                    ? () => openDirections(i.lat!, i.lng!)
+                    : null,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -1308,7 +1658,7 @@ class _Row extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (i.hasPoint) ...[
+                    if (i.hasPoint && !i.isReport) ...[
                       const SizedBox(height: 6),
                       const Icon(
                         Icons.directions_outlined,

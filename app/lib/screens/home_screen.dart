@@ -13,19 +13,43 @@ import '../widgets/async_body.dart';
 import '../widgets/emergency_numbers.dart';
 import '../widgets/sos_sheet.dart';
 import 'queued_reports_screen.dart';
+import 'report_reply_sheet.dart';
 
-// Neutral surface colours shared with the Create a Report and Map screens.
-// Colour is kept only for SOS, the alert banner, type icons and category labels.
-const Color _homeBorder = Color(0xFFE2E4EA);
-const Color _homeRedTint = Color(0xFFFDEEF0);
-const Color _homeRedBorder = Color(0xFFF2B8C0);
+// Clean palette: light grey cards on white with black text. Red is kept only
+// for SOS and the alert icon.
 const Color _homeSurface = Color(0xFFF3F4F8);
 
 // Every icon on this screen uses this one neutral colour.
 const Color _homeIcon = EhbrColors.ink;
 
-/// Announcements, evacuation centers, and whether we are offline.
-typedef _HomeData = (List<Announcement>, List<EvacCenter>, bool);
+/// Announcements, evacuation centers, whether we are offline, the resident's
+/// own reports and the roads currently blocked.
+typedef _HomeData = (
+  List<Announcement>,
+  List<EvacCenter>,
+  bool,
+  List<Report>,
+  List<Blockage>,
+);
+
+/// The extras on Home must never break the screen, so a failure just means
+/// "nothing to show".
+Future<T> _safe<T>(Future<T> f, T fallback) async {
+  try {
+    return await f;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+/// The newest report that is still being handled, if any.
+Report? _activeReport(List<Report> reports) {
+  final open = reports
+      .where((r) => const ['NEW', 'VERIFIED', 'DISPATCHED'].contains(r.status))
+      .toList()
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return open.isEmpty ? null : open.first;
+}
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -33,30 +57,44 @@ class HomeScreen extends StatelessWidget {
     required this.reloadToken,
     required this.onReport,
     required this.onOpenNews,
+    required this.onOpenReports,
+    required this.onOpenMap,
   });
 
   final int reloadToken;
 
   /// Opens the Create Report form, optionally pre-selecting a type.
   final ValueChanged<String?> onReport;
-  final VoidCallback onOpenNews;
+
+  /// Opens the News tab, on a specific announcement when an id is given.
+  final ValueChanged<String?> onOpenNews;
+
+  /// Opens My Reports (Profile tab), on one report when an id is given.
+  final ValueChanged<String?> onOpenReports;
+
+  /// Opens the Map tab.
+  final VoidCallback onOpenMap;
 
   Future<_HomeData> _load() async {
     try {
       final r = await Future.wait<Object>([
         Api.announcements(),
         Api.centers(),
+        _safe<List<Report>>(Api.myReports(), <Report>[]),
+        _safe<List<Blockage>>(Api.blockages(), <Blockage>[]),
       ]);
 
       return (
         r[0] as List<Announcement>,
         r[1] as List<EvacCenter>,
         false,
+        r[2] as List<Report>,
+        r[3] as List<Blockage>,
       );
     } on ApiException catch (e) {
       // Offline: SOS, reporting and saved emergency numbers remain available.
       if (e.isUnavailable) {
-        return (<Announcement>[], <EvacCenter>[], true);
+        return (<Announcement>[], <EvacCenter>[], true, <Report>[], <Blockage>[]);
       }
       rethrow;
     }
@@ -66,11 +104,14 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AsyncBody<_HomeData>(
       load: _load,
+      placeholder: const _HomeSkeleton(),
       reloadToken: reloadToken,
       builder: (context, data, refresh) {
         final cfg = Session.config;
         final announcements = data.$1;
         final offline = data.$3;
+        final active = _activeReport(data.$4);
+        final blockages = data.$5;
 
         final centers = data.$2.where((c) => c.status != 'closed').toList();
 
@@ -83,11 +124,12 @@ class HomeScreen extends StatelessWidget {
 
         final contacts = cfg.contacts.take(4).toList();
 
-        return RefreshIndicator(
+        return _ScrollEdge(
+          child: RefreshIndicator(
           onRefresh: refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
             children: [
               if (offline)
                 const _Notice(
@@ -118,54 +160,65 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
 
-              // SOS button: tapping opens the existing emergency options sheet.
-              _SosButton(
-                number: cfg.sosNumber,
-                hold: false,
-                onCall: () => showSosSheet(context),
-              ),
-
-              const SizedBox(height: 8),
-
-              Center(
-                child: Text(
-                  'Tap to view emergency options',
-                  style: manrope(
-                    11,
-                    FontWeight.w500,
-                    EhbrColors.muted,
-                  ),
+              // SOS button and the resident's active report, in one card.
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _homeSurface,
+                  borderRadius: BorderRadius.circular(22),
                 ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Both tiles share the height of the taller one.
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Column(
                   children: [
-                    Expanded(
-                      child: _ActionTile(
-                        icon: Icons.error_outline,
-                        title: 'Report Incident',
-                        body:
-                            'Immediately report an incident (e.g., accident, injuries, etc.)',
-                        onTap: () => onReport(null),
-                      ),
+                    // Tapping opens the emergency options sheet.
+                    _SosButton(
+                      number: cfg.sosNumber,
+                      hold: false,
+                      onCall: () => showSosSheet(context),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ActionTile(
-                        icon: Icons.warning_amber_rounded,
-                        title: 'Report Hazard',
-                        body:
-                            'Your observation keeps everyone safe. Report potential risks!',
-                        onTap: () => onReport('Other hazard'),
-                      ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap to view emergency options',
+                      style: manrope(11, FontWeight.w500, EhbrColors.muted),
                     ),
+                    if (active != null) ...[
+                      const SizedBox(height: 12),
+                      _ActiveReportCard(
+                        report: active,
+                        onOpen: () => onOpenReports(active.id),
+                        onReply: () => _replyTo(context, active, refresh),
+                      ),
+                    ],
                   ],
                 ),
+              ),
+
+              const SizedBox(height: 20),
+              const _SectionTitle('Report'),
+              const SizedBox(height: 12),
+
+              // Two big cards, like the lime / black cards in the reference.
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionCard(
+                      icon: Icons.error_outline,
+                      title: 'Report Incident',
+                      body:
+                          'Immediately report an incident (e.g., accident, injuries, etc.)',
+                      onTap: () => onReport(null),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ActionCard(
+                      icon: Icons.warning_amber_rounded,
+                      title: 'Report Hazard',
+                      body:
+                          'Your observation keeps everyone safe. Report potential risks!',
+                      onTap: () => onReport('Other hazard'),
+                    ),
+                  ),
+                ],
               ),
 
               if (contacts.isNotEmpty) ...[
@@ -187,17 +240,34 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
 
-              if (alert != null) ...[
-                const SizedBox(height: 20),
-                _AlertBanner(alert, onTap: onOpenNews),
-              ],
-
               if (offline) ...[
                 const SizedBox(height: 20),
                 const EmergencyNumbersCard(),
               ] else ...[
                 const SizedBox(height: 24),
-                const _SectionTitle('Evacuation & Safe Zones'),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: _SectionTitle('Evacuation & Safe Zones'),
+                    ),
+                    if (centers.length > 1)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onOpenMap,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Text(
+                            'See all',
+                            style: manrope(
+                              12,
+                              FontWeight.w700,
+                              EhbrColors.ink,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 if (centers.isEmpty)
                   const EmptyState(
@@ -206,11 +276,21 @@ class HomeScreen extends StatelessWidget {
                     message: 'Your barangay will add them here.',
                   )
                 else
-                  for (final c in centers.take(3)) ...[
+                  for (final c in centers.take(1)) ...[
                     _CenterCard(c),
                     const SizedBox(height: 10),
                   ],
-                const SizedBox(height: 14),
+                if (alert != null || blockages.isNotEmpty) ...[
+                  _StatusCard(
+                    alert: alert,
+                    blockCount: blockages.length,
+                    onAlert: alert == null ? null : () => onOpenNews(alert.id),
+                    onBlock: onOpenMap,
+                  ),
+                ],
+                SizedBox(
+                  height: alert != null || blockages.isNotEmpty ? 24 : 14,
+                ),
                 Row(
                   children: [
                     const Expanded(
@@ -219,7 +299,7 @@ class HomeScreen extends StatelessWidget {
                     if (announcements.length > 3)
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: onOpenNews,
+                        onTap: () => onOpenNews(null),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Text(
@@ -227,7 +307,7 @@ class HomeScreen extends StatelessWidget {
                             style: manrope(
                               12,
                               FontWeight.w700,
-                              EhbrColors.brand,
+                              EhbrColors.ink,
                             ),
                           ),
                         ),
@@ -246,15 +326,65 @@ class HomeScreen extends StatelessWidget {
                   for (final a in announcements.take(3)) ...[
                     _AnnouncementTile(
                       a,
-                      onTap: onOpenNews,
+                      onTap: () => onOpenNews(a.id),
                     ),
                     const SizedBox(height: 10),
                   ],
               ],
             ],
           ),
+        ),
         );
       },
+    );
+  }
+}
+
+/// Draws a thin divider under the top bar once the page has scrolled, so
+/// content never slides under the white bar with no visible edge.
+class _ScrollEdge extends StatefulWidget {
+  const _ScrollEdge({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ScrollEdge> createState() => _ScrollEdgeState();
+}
+
+class _ScrollEdgeState extends State<_ScrollEdge> {
+  bool _scrolled = false;
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.metrics.axis != Axis.vertical) return false;
+    if (n is! ScrollUpdateNotification && n is! ScrollEndNotification) {
+      return false;
+    }
+    final s = n.metrics.pixels > 4;
+    if (s != _scrolled) setState(() => _scrolled = s);
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        NotificationListener<ScrollNotification>(
+          onNotification: _onScroll,
+          child: widget.child,
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _scrolled ? 1 : 0,
+              duration: const Duration(milliseconds: 150),
+              child: Container(height: 1, color: const Color(0xFFE2E4EA)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -331,7 +461,7 @@ class _SosButtonState extends State<_SosButton>
       child: Material(
         color: EhbrColors.sos,
         elevation: 0,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: widget.hold
@@ -346,9 +476,12 @@ class _SosButtonState extends State<_SosButton>
                       ),
                     );
                 }
-              : widget.onCall,
+              : () {
+                  HapticFeedback.mediumImpact();
+                  widget.onCall();
+                },
           child: SizedBox(
-            height: 54,
+            height: 60,
             width: double.infinity,
             child: Stack(
               fit: StackFit.expand,
@@ -402,8 +535,9 @@ class _SosButtonState extends State<_SosButton>
   }
 }
 
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
+/// Large rounded neutral card for the two report actions.
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
     required this.icon,
     required this.title,
     required this.body,
@@ -418,51 +552,56 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: _homeBorder),
-      ),
+      color: _homeSurface,
+      borderRadius: BorderRadius.circular(22),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: _homeSurface,
-                  borderRadius: BorderRadius.circular(10),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: SizedBox(
+          height: 176,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: _homeIcon, size: 20),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.north_east_rounded,
+                      color: EhbrColors.muted,
+                      size: 18,
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: _homeIcon, size: 20),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: manrope(
-                  14,
-                  FontWeight.w700,
-                  EhbrColors.ink,
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: manrope(15, FontWeight.w800, EhbrColors.ink),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                body,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: manrope(
-                  11,
-                  FontWeight.w400,
-                  EhbrColors.muted,
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: manrope(11, FontWeight.w500, EhbrColors.muted),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -482,25 +621,30 @@ class _ContactTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: _homeBorder),
-      ),
+      color: _homeSurface,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: SizedBox(
-          height: 76,
+          height: 88,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.phone_in_talk_outlined,
-                color: _homeIcon,
-                size: 24,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.phone_in_talk_outlined,
+                  color: _homeIcon,
+                  size: 18,
+                ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
@@ -514,65 +658,6 @@ class _ContactTile extends StatelessWidget {
                     EhbrColors.ink,
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AlertBanner extends StatelessWidget {
-  const _AlertBanner(
-    this.a, {
-    required this.onTap,
-  });
-
-  final Announcement a;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: _homeRedTint,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: _homeRedBorder),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.warning_amber_rounded,
-                color: _homeIcon,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${a.title} · ${ago(a.createdAt)}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: manrope(
-                    12,
-                    FontWeight.w700,
-                    EhbrColors.ink,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: EhbrColors.muted,
               ),
             ],
           ),
@@ -597,20 +682,19 @@ class _CenterCard extends StatelessWidget {
     ].join(' · ');
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _homeBorder),
-        borderRadius: BorderRadius.circular(12),
+        color: _homeSurface,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _homeSurface,
-              borderRadius: BorderRadius.circular(10),
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.shield_outlined,
@@ -645,28 +729,42 @@ class _CenterCard extends StatelessWidget {
                     EhbrColors.muted,
                   ),
                 ),
+                if (c.capacity > 0) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      value: (c.occupied / c.capacity).clamp(0.0, 1.0),
+                      minHeight: 4,
+                      backgroundColor: Colors.white,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        c.occupied / c.capacity >= .9
+                            ? EhbrColors.sos
+                            : EhbrColors.ink,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           if (c.lat != null && c.lng != null) ...[
             const SizedBox(width: 10),
-            OutlinedButton(
+            FilledButton(
               onPressed: () => openDirections(c.lat!, c.lng!),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: EhbrColors.ink,
-                side: const BorderSide(color: _homeBorder),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+              style: FilledButton.styleFrom(
+                backgroundColor: EhbrColors.ink,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
                 minimumSize: const Size(64, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
               child: Text(
                 'Route',
                 style: manrope(
                   12,
                   FontWeight.w700,
-                  EhbrColors.ink,
+                  Colors.white,
                 ),
               ),
             ),
@@ -677,7 +775,7 @@ class _CenterCard extends StatelessWidget {
   }
 }
 
-/// Announcement row on Home: white bordered card; only the category label is coloured.
+/// Announcement row on Home: soft grey card; only the category label is coloured.
 class _AnnouncementTile extends StatelessWidget {
   const _AnnouncementTile(
     this.a, {
@@ -692,70 +790,365 @@ class _AnnouncementTile extends StatelessWidget {
     final color = categoryColor(a.category);
 
     return Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: _homeBorder),
-      ),
+      color: _homeSurface,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
+        // One fixed card size, so every announcement looks the same
+        // whatever the length of its title or message.
+        child: SizedBox(
+          height: 124,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        categoryTag(a.category),
+                        style: manrope(10, FontWeight.w700, color),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      ago(a.createdAt),
+                      style: manrope(
+                        11,
+                        FontWeight.w500,
+                        EhbrColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: manrope(
+                          13,
+                          FontWeight.w700,
+                          EhbrColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Flexible(
+                        child: Text(
+                          a.body,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: manrope(
+                            12,
+                            FontWeight.w400,
+                            EhbrColors.muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the reply sheet for a report the barangay asked about.
+Future<void> _replyTo(
+  BuildContext context,
+  Report r,
+  Future<void> Function() refresh,
+) async {
+  final out = await showReplySheet(
+    context,
+    reportId: r.id,
+    question: r.infoMessage,
+  );
+
+  if (out == null || !context.mounted) return;
+
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(
+          out == ReplyOutcome.sent
+              ? 'Your reply was sent to the barangay.'
+              : 'Saved. It will be sent when you are back online.',
+        ),
+      ),
+    );
+
+  await refresh();
+}
+
+/// Slim card for the resident's own report that is still being handled.
+/// When the barangay asked for more details it turns into a reply prompt.
+class _ActiveReportCard extends StatelessWidget {
+  const _ActiveReportCard({
+    required this.report,
+    required this.onOpen,
+    required this.onReply,
+  });
+
+  final Report report;
+  final VoidCallback onOpen;
+  final VoidCallback onReply;
+
+  String get _status => switch (report.status) {
+        'VERIFIED' => 'Verified by the barangay',
+        'DISPATCHED' => 'Responders are on the way',
+        _ => 'Received, waiting for review',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final reply = report.canReply;
+    final question = (report.infoMessage ?? '').trim();
+
+    final sub = reply
+        ? (question.isEmpty ? 'The barangay needs more details.' : question)
+        : '$_status · ${ago(report.createdAt)}';
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: reply ? onReply : onOpen,
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: .1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      categoryTag(a.category),
-                      style: manrope(10, FontWeight.w700, color),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    ago(a.createdAt),
-                    style: manrope(
-                      11,
-                      FontWeight.w500,
-                      EhbrColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                a.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: manrope(
-                  13,
-                  FontWeight.w700,
-                  EhbrColors.ink,
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: _homeSurface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  reply ? Icons.mark_chat_unread_outlined : Icons.assignment_outlined,
+                  color: _homeIcon,
+                  size: 22,
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                a.body,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: manrope(
-                  12,
-                  FontWeight.w400,
-                  EhbrColors.muted,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reply ? 'Reply needed' : 'Your report',
+                      style: manrope(
+                        10,
+                        FontWeight.w700,
+                        reply ? EhbrColors.sos : EhbrColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      report.type,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: manrope(14, FontWeight.w700, EhbrColors.ink),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      sub,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: manrope(11, FontWeight.w500, EhbrColors.muted),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 10),
+              if (reply)
+                FilledButton(
+                  onPressed: onReply,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: EhbrColors.ink,
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
+                    minimumSize: const Size(64, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  child: Text(
+                    'Reply',
+                    style: manrope(12, FontWeight.w700, Colors.white),
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: EhbrColors.muted,
+                ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Alert and blocked-road notices in one quiet card instead of two banners.
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.alert,
+    required this.blockCount,
+    required this.onAlert,
+    required this.onBlock,
+  });
+
+  final Announcement? alert;
+  final int blockCount;
+  final VoidCallback? onAlert;
+  final VoidCallback onBlock;
+
+  Widget _row(IconData icon, Color color, String text, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: manrope(12, FontWeight.w700, EhbrColors.ink),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: EhbrColors.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = alert;
+
+    return Material(
+      color: _homeSurface,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          if (a != null)
+            _row(
+              Icons.warning_amber_rounded,
+              EhbrColors.sos,
+              '${a.title} · ${ago(a.createdAt)}',
+              onAlert,
+            ),
+          if (a != null && blockCount > 0)
+            const Divider(height: 2, thickness: 2, color: Colors.white),
+          if (blockCount > 0)
+            _row(
+              Icons.block,
+              _homeIcon,
+              '$blockCount road${blockCount == 1 ? '' : 's'} blocked · See on map',
+              onBlock,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Grey placeholder blocks shown while Home loads, so the layout does not jump.
+class _HomeSkeleton extends StatefulWidget {
+  const _HomeSkeleton();
+
+  @override
+  State<_HomeSkeleton> createState() => _HomeSkeletonState();
+}
+
+class _HomeSkeletonState extends State<_HomeSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  Widget _b(double h, {double? w, double r = 18}) => Container(
+        height: h,
+        width: w,
+        decoration: BoxDecoration(
+          color: const Color(0xFFEBECF1),
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: FadeTransition(
+        opacity: Tween<double>(begin: .45, end: 1).animate(
+          CurvedAnimation(parent: _c, curve: Curves.easeInOut),
+        ),
+        child: ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+          children: [
+            _b(96, r: 22),
+            const SizedBox(height: 20),
+            _b(16, w: 80, r: 6),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _b(176, r: 22)),
+                const SizedBox(width: 12),
+                Expanded(child: _b(176, r: 22)),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _b(16, w: 150, r: 6),
+            const SizedBox(height: 12),
+            _b(76),
+            const SizedBox(height: 24),
+            _b(16, w: 130, r: 6),
+            const SizedBox(height: 12),
+            for (var i = 0; i < 3; i++) ...[
+              _b(124),
+              const SizedBox(height: 10),
+            ],
+          ],
         ),
       ),
     );
@@ -780,18 +1173,18 @@ class _Notice extends StatelessWidget {
       child: Material(
         color: const Color(0xFFFFF4D6),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(
             color: Color(0xFFF2D58A),
           ),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
+              horizontal: 14,
+              vertical: 12,
             ),
             child: Row(
               children: [

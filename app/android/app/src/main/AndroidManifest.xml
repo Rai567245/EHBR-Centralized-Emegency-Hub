@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Phase 3 (SEC-43): Required hardware and network permissions -->
+   
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Phase 3 (SEC-29, SEC-44): Block cleartext HTTP and disable cloud backups -->
+   
     <application
         android:label="EHBR"
         android:name="${applicationName}"

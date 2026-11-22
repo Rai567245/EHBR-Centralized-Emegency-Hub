@@ -1,0 +1,33 @@
+{
+  "id": "bk-20261122-140257-a6ef",
+  "type": "manual",
+  "source": "admin",
+  "status": "completed",
+  "createdAt": "2026-11-22T14:02:57.337Z",
+  "finishedAt": "2026-11-22T14:02:57.701Z",
+  "createdById": "32bc3d7e-bb85-4a5d-9c33-e065486b4a66",
+  "createdByName": "Barangay Admin",
+  "encrypted": false,
+  "size": 306011,
+  "sha256": "d8eb253970ab22fc585d4259efcae6f3fdd4d8a91ab1a38e1ce87e71ca1f18f7",
+  "counts": {
+    "users": 5,
+    "reports": 13,
+    "announcements": 7,
+    "centers": 1,
+    "blockages": 0,
+    "notifications": 67,
+    "activity": 163,
+    "meta": 2
+  },
+  "uploads": 2,
+  "notes": "",
+  "protected": false,
+  "validation": {
+    "status": "valid",
+    "checkedAt": "2026-11-22T14:02:57.727Z",
+    "error": ""
+  },
+  "error": "",
+  "engine": "postgres"
+}

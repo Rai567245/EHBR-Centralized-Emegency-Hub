@@ -10,17 +10,36 @@ import 'session.dart';
 
 /// A report that couldn't be sent yet and is waiting on the phone.
 class QueuedReport {
-  QueuedReport({required this.localId, required this.userId, required this.payload, required this.savedAt, this.error});
+  QueuedReport({
+    required this.localId,
+    required this.userId,
+    required this.payload,
+    required this.savedAt,
+    this.kind = 'report',
+    this.reportId,
+    this.error,
+  });
 
   final String localId, userId;
   final Map<String, dynamic> payload;
   final DateTime savedAt;
 
+  /// 'report' (a new report) or 'reply' (an answer to a more-info request).
+  final String kind;
+
+  /// The report a reply belongs to (replies only).
+  final String? reportId;
+
   /// Set when the server refused it (not just "no signal"); needs the resident's attention.
   String? error;
 
-  String get type => (payload['type'] ?? '') as String;
-  String get description => (payload['description'] ?? '') as String;
+  bool get isReply => kind == 'reply';
+
+  // type / description feed the queued-reports screen, so replies read sensibly there too.
+  String get type =>
+      isReply ? 'Reply to ${reportId ?? ""}' : (payload['type'] ?? '') as String;
+  String get description =>
+      ((isReply ? payload['message'] : payload['description']) ?? '') as String;
   String get locationText => (payload['locationText'] ?? '') as String;
 
   Map<String, dynamic> toJson() => {
@@ -28,6 +47,8 @@ class QueuedReport {
         'userId': userId,
         'payload': payload,
         'savedAt': savedAt.toIso8601String(),
+        'kind': kind,
+        'reportId': reportId,
         'error': error,
       };
 
@@ -36,6 +57,8 @@ class QueuedReport {
         userId: j['userId'] as String,
         payload: Map<String, dynamic>.from(j['payload'] as Map),
         savedAt: DateTime.parse(j['savedAt'] as String),
+        kind: (j['kind'] as String?) ?? 'report', // old saved items have no kind
+        reportId: j['reportId'] as String?,
         error: j['error'] as String?,
       );
 }
@@ -59,29 +82,42 @@ class ReportQueue {
 
   static String newClientId() {
     final r = Random.secure();
-    return List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+    return List.generate(
+      16,
+      (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
   }
 
   static Future<void> load() async {
     if (_loaded) return;
+
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
+
     if (raw != null) {
       try {
         _items
           ..clear()
-          ..addAll((jsonDecode(raw) as List).map((e) => QueuedReport.fromJson(e as Map<String, dynamic>)));
+          ..addAll(
+            (jsonDecode(raw) as List).map(
+              (e) => QueuedReport.fromJson(e as Map<String, dynamic>),
+            ),
+          );
       } catch (_) {
         // a damaged queue must never stop the app from opening
       }
     }
+
     _loaded = true;
     changes.value++;
   }
 
   static Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(_items.map((q) => q.toJson()).toList()));
+    await prefs.setString(
+      _key,
+      jsonEncode(_items.map((q) => q.toJson()).toList()),
+    );
     changes.value++;
   }
 
@@ -89,16 +125,25 @@ class ReportQueue {
   static List<QueuedReport> get pending =>
       _items.where((q) => q.userId == Session.user?.id).toList(growable: false);
 
-  static Future<QueuedReport> enqueue(Map<String, dynamic> payload) async {
+  static Future<QueuedReport> enqueue(
+    Map<String, dynamic> payload, {
+    String kind = 'report',
+    String? reportId,
+  }) async {
     await load();
+
     final q = QueuedReport(
       localId: newClientId(),
       userId: Session.user!.id,
       payload: payload,
       savedAt: DateTime.now(),
+      kind: kind,
+      reportId: reportId,
     );
+
     _items.add(q);
     await _save();
+
     return q;
   }
 
@@ -110,28 +155,46 @@ class ReportQueue {
   /// Clears a "server refused it" mark so the next flush tries again.
   static Future<void> retry(String localId) async {
     _pausedUntil = null;
+
     for (final q in _items) {
       if (q.localId == localId) q.error = null;
     }
+
     await _save();
   }
 
   /// Tries to send everything waiting. Stops at the first "still offline".
   /// Returns the reports that reached the barangay in this run.
-  static DateTime? _pausedUntil; // set when the server says "too many requests, wait N seconds"
+  static DateTime? _pausedUntil;
 
+  /// Set when the server says "too many requests, wait N seconds".
   static Future<List<Report>> flush() async {
-    if (_flushing || Api.token == null || Session.user == null) return const [];
-    if (_pausedUntil != null && DateTime.now().isBefore(_pausedUntil!)) return const [];
+    if (_flushing || Api.token == null || Session.user == null) {
+      return const [];
+    }
+
+    if (_pausedUntil != null &&
+        DateTime.now().isBefore(_pausedUntil!)) {
+      return const [];
+    }
+
     _flushing = true;
     final delivered = <Report>[];
+
     try {
       await load();
       var changed = false;
+
       for (final q in pending) {
-        if (q.error != null) continue; // refused earlier – waits for the resident
+        if (q.error != null) {
+          continue; // refused earlier – waits for the resident
+        }
+
         try {
-          final r = await Api.submitReport(q.payload);
+          final r = q.isReply
+              ? await Api.replyToReport(q.reportId!, q.payload)
+              : await Api.submitReport(q.payload);
+
           sent[q.localId] = r;
           delivered.add(r);
           _items.remove(q);
@@ -140,18 +203,26 @@ class ReportQueue {
           if (e.isRateLimited || e.status == 503) {
             // Be polite: wait as long as the server asked (at least 20 s, at most 5 min) before trying again.
             final secs = (e.retryAfter ?? 20).clamp(20, 300);
-            _pausedUntil = DateTime.now().add(Duration(seconds: secs));
+            _pausedUntil = DateTime.now().add(
+              Duration(seconds: secs),
+            );
             break;
           }
-          if (e.isUnavailable || e.status == 401) break; // still offline – try again later
+
+          if (e.isUnavailable || e.status == 401) {
+            break; // still offline – try again later
+          }
+
           q.error = e.message; // the server said no; keep it so the resident can see why
           changed = true;
         }
       }
+
       if (changed) await _save();
     } finally {
       _flushing = false;
     }
+
     return delivered;
   }
 }

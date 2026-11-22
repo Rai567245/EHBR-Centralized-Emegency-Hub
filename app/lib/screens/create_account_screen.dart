@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../services/api.dart';
 import '../services/session.dart';
 import '../theme.dart';
@@ -189,7 +190,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         'address': _address.text.trim(),
         'zone': _zoneValue,
         'password': _password.text,
-        // Phase 3 (SEC-17): Send placeholder consent proof for now
         'consentVersion': '1.0-draft',
         'consentAt': DateTime.now().toUtc().toIso8601String(),
       });
@@ -213,17 +213,55 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     }
   }
 
-  void _back() {
+  /// True once the resident has typed or picked anything.
+  bool get _hasProgress =>
+      _first.text.trim().isNotEmpty ||
+      _last.text.trim().isNotEmpty ||
+      _contact.text.trim().isNotEmpty ||
+      _email.text.trim().isNotEmpty ||
+      _address.text.trim().isNotEmpty ||
+      _zoneText.text.trim().isNotEmpty ||
+      _password.text.isNotEmpty ||
+      _confirm.text.isNotEmpty ||
+      _zone != null;
+
+  /// Handles both the on-screen back arrow and the system back gesture.
+  /// Step 2 goes back to step 1; leaving the screen with entered details asks first.
+  Future<void> _back() async {
+    if (_busy) return;
+
     if (_step == 1) {
       setState(() => _step = 0);
-    } else {
-      Navigator.of(context).maybePop();
+      return;
+    }
+
+    if (!_hasProgress) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    final discard = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _DiscardSheet(),
+    );
+
+    if (discard == true && mounted) {
+      Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -271,13 +309,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
-Widget _biodata() {
+  Widget _biodata() {
     return Form(
       key: _form,
-      // NEW: This forces the red error indicators to update in real-time as the user types
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +323,7 @@ Widget _biodata() {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-             Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -296,15 +334,18 @@ Widget _biodata() {
                       cursorColor: _ehbrRed,
                       textCapitalization: TextCapitalization.words,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z\s\-\.]')),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r"[A-Za-z\u00C0-\u024F\s.'’\-]"),
+                        ),
                       ],
                       decoration: _fieldDeco(hint: 'E.g John'),
-                      // Smart real-time indicator for First Name
                       validator: (v) {
-                        final text = (v ?? '').trim();
-                        if (text.isEmpty) return 'Enter first name';
-                        if (text.length < 2) return 'Name is too short';
-                        if (!RegExp(r'^[A-Za-z\s\-\.]+$').hasMatch(text)) return 'Letters and spaces only';
+                        final value = (v ?? '').trim();
+                        if (value.isEmpty) return 'Enter first name';
+                        if (value.length < 2) return 'Name is too short';
+                        if (!RegExp(r"^[A-Za-z\u00C0-\u024F\s.'’\-]+$").hasMatch(value)) {
+                          return 'Enter a valid name';
+                        }
                         return null;
                       },
                     ),
@@ -323,15 +364,18 @@ Widget _biodata() {
                       cursorColor: _ehbrRed,
                       textCapitalization: TextCapitalization.words,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z\s\-\.]')),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r"[A-Za-z\u00C0-\u024F\s.'’\-]"),
+                        ),
                       ],
                       decoration: _fieldDeco(hint: 'E.g Appleseed'),
-                      // Smart real-time indicator for Last Name
                       validator: (v) {
-                        final text = (v ?? '').trim();
-                        if (text.isEmpty) return 'Enter last name';
-                        if (text.length < 2) return 'Name is too short';
-                        if (!RegExp(r'^[A-Za-z\s\-\.]+$').hasMatch(text)) return 'Letters and spaces only';
+                        final value = (v ?? '').trim();
+                        if (value.isEmpty) return 'Enter last name';
+                        if (value.length < 2) return 'Name is too short';
+                        if (!RegExp(r"^[A-Za-z\u00C0-\u024F\s.'’\-]+$").hasMatch(value)) {
+                          return 'Enter a valid name';
+                        }
                         return null;
                       },
                     ),
@@ -347,7 +391,6 @@ Widget _biodata() {
             keyboardType: TextInputType.phone,
             style: _inputStyle,
             cursorColor: _ehbrRed,
-            // Only allow numbers and limit to exactly 11 digits
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(11),
@@ -356,13 +399,11 @@ Widget _biodata() {
               hint: 'Enter your contact number',
               icon: Icons.phone_outlined,
             ),
-            // Show red error text immediately if it doesn't match the format when they press continue
-           // Smart real-time indicator
             validator: (v) {
-              final text = v ?? '';
-              if (text.isEmpty) return 'Enter your contact number';
-              if (!text.startsWith('09')) return 'Must start with 09 (e.g., 0912...)';
-              if (text.length < 11) return 'Must be exactly 11 digits';
+              final value = (v ?? '').trim();
+              if (value.isEmpty) return 'Enter your contact number';
+              if (!value.startsWith('09')) return 'Must start with 09';
+              if (value.length != 11) return 'Must be exactly 11 digits';
               return null;
             },
           ),
@@ -437,8 +478,10 @@ Widget _biodata() {
                 tooltip: _hidePw ? 'Show password' : 'Hide password',
                 onPressed: () =>
                     setState(() => _hidePw = !_hidePw),
+                // Icon reflects the current state: crossed-out eye while the
+                // password is hidden, open eye while it is visible.
                 icon: Icon(
-                  _hidePw ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  _hidePw ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                   color: EhbrColors.muted,
                   size: 20,
                 ),
@@ -589,6 +632,92 @@ Widget _biodata() {
           busy: _busy,
         ),
       ],
+    );
+  }
+}
+
+/// "Discard?" confirmation shown when leaving with unfinished details.
+/// Pops `true` to discard, `false` (or dismissed) to keep editing.
+class _DiscardSheet extends StatelessWidget {
+  const _DiscardSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4D4D8),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFDEEF0),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.edit_off_outlined,
+                  color: _ehbrRed,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Discard sign-up?',
+                style: manrope(18, FontWeight.w800, EhbrColors.ink),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'You have unfinished account details. If you leave now, '
+                'what you entered will be lost.',
+                textAlign: TextAlign.center,
+                style: manrope(12, FontWeight.w400, EhbrColors.muted)
+                    .copyWith(height: 1.4),
+              ),
+              const SizedBox(height: 22),
+              _CtaButton(
+                label: 'Keep editing',
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _ehbrRed,
+                    side: const BorderSide(color: _cBorder),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Discard sign-up',
+                    style: manrope(14, FontWeight.w700, _ehbrRed),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

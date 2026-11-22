@@ -1,10 +1,11 @@
-
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
 const Color _ehbrLogoRed = Color(0xFFC7193D);
+const Color _barChip = Color(0xFFF3F4F8);
 
+/// White top bar: logo, barangay + app name, and a notification bell.
 class EhbrTopBar extends StatelessWidget {
   const EhbrTopBar({
     super.key,
@@ -27,8 +28,8 @@ class EhbrTopBar extends StatelessWidget {
 
     return Container(
       height: 64,
-      color: EhbrColors.ink,
-      padding: const EdgeInsets.only(left: 16, right: 6),
+      color: Colors.white,
+      padding: const EdgeInsets.only(left: 16, right: 16),
       child: Row(
         children: [
           // EHBR logo
@@ -43,14 +44,14 @@ class EhbrTopBar extends StatelessWidget {
 
                 return const Icon(
                   Icons.broken_image_outlined,
-                  color: Colors.white,
+                  color: EhbrColors.ink,
                   size: 24,
                 );
               },
             ),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
 
           // Barangay location and application name
           Expanded(
@@ -63,13 +64,13 @@ class EhbrTopBar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: manrope(
-                    11,
-                    FontWeight.w400,
-                    Colors.white,
+                    12,
+                    FontWeight.w500,
+                    EhbrColors.ink.withValues(alpha: .7),
                   ),
                 ),
 
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
 
                 Text(
                   'Emergency Hub',
@@ -88,21 +89,32 @@ class EhbrTopBar extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                IconButton(
-                  tooltip: 'Notifications',
-                  onPressed: onBell,
-                  icon: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: Colors.white,
-                    size: 26,
+                Material(
+                  color: _barChip,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onBell,
+                    child: const Tooltip(
+                      message: 'Notifications',
+                      child: SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: Icon(
+                          Icons.notifications_none_rounded,
+                          color: EhbrColors.ink,
+                          size: 22,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
 
                 // Unread notification badge
                 if (unread > 0)
                   Positioned(
-                    right: 6,
-                    top: 6,
+                    right: -2,
+                    top: -3,
                     child: IgnorePointer(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -116,7 +128,7 @@ class EhbrTopBar extends StatelessWidget {
                           color: EhbrColors.sos,
                           borderRadius: BorderRadius.circular(99),
                           border: Border.all(
-                            color: EhbrColors.ink,
+                            color: Colors.white,
                             width: 1.5,
                           ),
                         ),

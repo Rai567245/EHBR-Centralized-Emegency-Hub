@@ -102,6 +102,9 @@
                 placeholder="admin.sample@example.ph"
                 autocomplete="username"
                 required
+                maxlength="60"
+                pattern="[a-zA-Z0-9@._-]+"
+                title="Only letters, numbers, @, periods, hyphens, and underscores are allowed"
               >
 
             </div>
@@ -129,6 +132,7 @@
                 placeholder="Enter your password"
                 autocomplete="current-password"
                 required
+                maxlength="64"
               >
 
               <button
@@ -144,8 +148,10 @@
                   viewBox="0 0 24 24"
                   aria-hidden="true"
                 >
-                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
-                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M9.9 9.9a3 3 0 104.2 4.2"/>
+                  <path d="M10.7 5.1A10.4 10.4 0 0112 5c7 0 10 7 10 7a13.2 13.2 0 01-1.7 2.7"/>
+                  <path d="M6.6 6.6A13.5 13.5 0 002 12s3 7 10 7a9.7 9.7 0 005.4-1.6"/>
+                  <path d="M2 2l20 20"/>
                 </svg>
 
               </button>
@@ -190,12 +196,9 @@
             <strong>Password recovery</strong>
 
             <p>
-              Contact your system administrator for assistance.
-              For the initial development setup, the admin password
-              is printed in the server terminal.
+              Please contact your system administrator or barangay
+              official to reset your password.
             </p>
-
-            <code>node server.js --reset-admin</code>
 
           </div>
 

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme.dart';
 
-/// Floating bottom navigation.
+// Red highlight behind the active tab (same red as the SOS button).
+const Color _navActive = EhbrColors.sos;
+
+/// Floating white bottom navigation.
 ///
-/// The active tab looks the same on every tab (filled icon, bold label, soft pill),
-/// and inactive tabs are slightly dimmed white. Before, a tab could be drawn in grey
-/// when active, which made it look dimmer than the inactive ones.
+/// The active tab looks the same on every tab (filled icon, bold label, lime pill),
+/// and inactive tabs are muted grey.
 ///
 /// While the on-screen keyboard is open the bar hides itself, so it never floats
 /// above the keyboard no matter which screen or Scaffold it is placed in.
@@ -21,11 +24,9 @@ class EhbrBottomNav extends StatefulWidget {
   final int index;
   final ValueChanged<int>? onTap;
 
-  /// Kept so existing callers still compile. The active colour is now fixed
-  /// (see [_active]) so it never changes between tabs.
+  /// Kept so existing callers still compile. It is ignored: the active tab
+  /// always uses the lime pill with a black icon.
   final Color activeColor;
-
-  static const Color _active = EhbrColors.brandLight;
 
   // (outlined icon, filled icon used when selected, label)
   static const _items = <(IconData, IconData, String)>[
@@ -86,12 +87,13 @@ class _EhbrBottomNavState extends State<EhbrBottomNav>
     if (_keyboardOpen) return const SizedBox.shrink();
 
     return Container(
-      height: 58,
+      height: 62,
       decoration: BoxDecoration(
-        color: EhbrColors.ink,
-        borderRadius: BorderRadius.circular(22),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E4EA)),
         boxShadow: const [
-          BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 4)),
+          BoxShadow(color: Color(0x1A000000), blurRadius: 18, offset: Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -104,7 +106,10 @@ class _EhbrBottomNavState extends State<EhbrBottomNav>
                     : EhbrBottomNav._items[i].$1,
                 label: EhbrBottomNav._items[i].$3,
                 selected: i == widget.index,
-                onTap: () => widget.onTap?.call(i),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  widget.onTap?.call(i);
+                },
               ),
             ),
         ],
@@ -128,7 +133,8 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? EhbrBottomNav._active : Colors.white.withValues(alpha: .7);
+    final iconColor = selected ? Colors.white : EhbrColors.muted;
+    final color = selected ? EhbrColors.ink : EhbrColors.muted;
 
     return Semantics(
       button: true,
@@ -147,10 +153,10 @@ class _NavItem extends StatelessWidget {
               height: 28,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? EhbrBottomNav._active.withValues(alpha: .16) : Colors.transparent,
+                color: selected ? _navActive : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, size: 22, color: color),
+              child: Icon(icon, size: 22, color: iconColor),
             ),
             const SizedBox(height: 2),
             Text(

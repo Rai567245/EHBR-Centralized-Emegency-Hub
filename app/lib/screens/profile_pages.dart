@@ -31,7 +31,10 @@ Widget _page(BuildContext context, String title, List<Widget> children) => Scaff
     );
 
 /// White bordered card with an optional neutral icon tile and trailing widget.
-Widget _card(String title, String body, {IconData? icon, Widget? trailing}) => Container(
+/// Pass [height] to give a group of cards one common minimum size; a card
+/// still grows if its text needs the room, so nothing can ever overflow.
+Widget _card(String title, String body, {IconData? icon, Widget? trailing, double? height}) => Container(
+      constraints: height == null ? null : BoxConstraints(minHeight: height),
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -139,17 +142,32 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     );
   }
 
+  // Every card on this page is the height of the longest one.
+  static const double _privacyCardHeight = 108;
+
   @override
   Widget build(BuildContext context) => _page(context, 'Privacy & Security', [
-        _card('Location permission', 'Used to show nearby reports and to attach your position to reports and SOS.',
-            icon: Icons.location_on_outlined, trailing: _locPill()),
-        _card('How your data is used', 'Your name and number are visible only to barangay staff. Public reports show your location and type, never your name. You choose what to share each time.',
-            icon: Icons.shield_outlined),
+        _card('Location permission', 'Shows nearby reports and adds your position to reports and SOS.',
+            icon: Icons.location_on_outlined, trailing: _locPill(), height: _privacyCardHeight),
+        _card('Camera & photos', 'Used only when you attach a photo to a report. You choose what to share each time. Photos you attach are seen only by barangay staff.',
+            icon: Icons.photo_camera_outlined, height: _privacyCardHeight),
+        _card('How your data is used', 'Your name and number are visible only to barangay staff. Public reports show your location and type, never your name.',
+            icon: Icons.shield_outlined, height: _privacyCardHeight),
         _card('Account security', 'Update your login password. You will be signed in on this phone only.',
             icon: Icons.lock_outline_rounded,
-            trailing: TextButton(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
-              child: Text('Change', style: manrope(13, FontWeight.w800, EhbrColors.brand)),
+            height: _privacyCardHeight,
+            // Same height as the icon tile, so "Change" sits level with the icon.
+            trailing: SizedBox(
+              height: 36,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text('Change', style: manrope(13, FontWeight.w800, EhbrColors.brand)),
+              ),
             )),
         const SizedBox(height: 8),
         _outlineBtn('Open Phone Settings', () => Geolocator.openAppSettings()),

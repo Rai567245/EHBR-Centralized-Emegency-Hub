@@ -8,11 +8,48 @@
   $('#resQ').value = res.q;
   const VULN = ['Senior', 'PWD', 'Infant', 'Pregnant'];
 
+  // ------------------------------------------------------------- paging (Prev / "1 of N" / Next, pinned to the bottom of each card)
+  const pg = { rsp: 1, cen: 1, zon: 1 }, size = { rsp: 8, cen: 8, zon: 8 };
+  const desktop = () => window.matchMedia('(min-width: 1101px)').matches;
+  const paintPager = (el, page, pages) => {
+    if (!el) return;
+    const chev = (n) => `<svg class="icon" aria-hidden="true"><use href="#${n}"/></svg>`;
+    el.innerHTML = `<button type="button" class="btn btn--fit" data-pg="prev"${page <= 1 ? ' disabled' : ''}>${chev('i-chev-l')}Prev</button>
+      <span class="bk__pager-info">${page} of ${pages}</span>
+      <button type="button" class="btn btn--fit" data-pg="next"${page >= pages ? ' disabled' : ''}>Next${chev('i-chev-r')}</button>`;
+  };
+  // How many rows fit in a card right now (desktop). Other layouts use 8; null = not measurable (tab hidden, no rows yet).
+  function fitSize(sc, rowSel) {
+    if (!desktop()) return 8;
+    if (!sc || !sc.clientHeight) return null;
+    const tr = sc.querySelector(rowSel), rowH = tr ? tr.getBoundingClientRect().height : 0;
+    if (!rowH) return null;
+    const head = sc.querySelector('thead');
+    return Math.max(4, Math.floor((sc.clientHeight - (head ? head.offsetHeight : 0) - 2) / rowH));
+  }
+  const pageOf = (list, k) => {
+    const pages = Math.max(1, Math.ceil(list.length / size[k]));
+    pg[k] = Math.min(Math.max(1, pg[k]), pages);
+    return { rows: list.slice((pg[k] - 1) * size[k], pg[k] * size[k]), pages };
+  };
+  let fitting = false;
+  function refit(k, scSel, rowSel, redraw) {
+    if (fitting) return;
+    const f = fitSize($(scSel), rowSel);
+    if (f && f !== size[k]) { fitting = true; const first = (pg[k] - 1) * size[k]; size[k] = f; pg[k] = Math.floor(first / f) + 1; try { redraw(); } finally { fitting = false; } }
+  }
+  const bindPager = (sel, k, scSel, redraw) => $(sel).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pg]'); if (!b || b.disabled) return;
+    pg[k] += b.dataset.pg === 'next' ? 1 : -1; redraw();
+    const sc = $(scSel); if (sc) sc.scrollTop = 0;
+  });
+
   // ------------------------------------------------------------- tabs
   function tab(name) {
     if (!['residents', 'responders', 'centers', 'zones'].includes(name)) name = 'residents';
     $$('#tabs .tab').forEach((t) => t.classList.toggle('is-on', t.dataset.tab === name));
     ['residents', 'responders', 'centers', 'zones'].forEach((n) => { $('#tab-' + n).hidden = n !== name; });
+    setTimeout(refitAll, 0);
   }
   $('#tabs').addEventListener('click', (e) => { const t = e.target.closest('.tab'); if (t) { e.preventDefault(); history.replaceState(null, '', '#' + t.dataset.tab); tab(t.dataset.tab); } });
   tab(location.hash.slice(1));
@@ -31,14 +68,18 @@
       <td>${u.reportCount}</td><td>${esc(ago(u.createdAt))}</td>
       <td><button class="dots-btn" data-menu title="Actions" aria-label="Row actions">⋯</button></td></tr>`).join('');
     $('#resEmpty').innerHTML = out.items.length ? '' : `<div class="empty"><b>${res.q || res.zone || res.vuln ? 'No residents match your search' : 'No residents yet'}</b>${res.q ? '' : 'Residents appear here when they sign up in the app, or add one yourself.'}</div>`;
-    const first = out.total ? (res.page - 1) * res.size + 1 : 0, last = Math.min(out.total, res.page * res.size);
-    $('#resShown').textContent = out.total ? `Showing ${first}–${last} of ${out.total.toLocaleString()} resident${out.total === 1 ? '' : 's'}` : '';
     const pages = Math.max(1, Math.ceil(out.total / res.size));
-    const btn = (label, p, on = false, dis = false) => `<button class="pg${on ? ' is-on' : ''}" data-p="${p}"${dis ? ' disabled' : ''}>${label}</button>`;
-    let html = btn('‹', res.page - 1, false, res.page <= 1);
-    for (let p = Math.max(1, res.page - 2); p <= Math.min(pages, res.page + 2); p++) html += btn(p, p, p === res.page);
-    html += btn('›', res.page + 1, false, res.page >= pages);
-    $('#resPager').innerHTML = out.total > res.size ? html : '';
+    if (res.page > pages) { res.page = pages; return loadResidents(); }
+    paintPager($('#resPager'), res.page, pages);
+    if (adjustResidents()) return loadResidents();
+  }
+  // Rows per page follows the card height. Returns true when the size changed (the caller reloads).
+  function adjustResidents() {
+    if (fitting) return false;
+    const f = fitSize($('#resScroll'), 'tbody tr');
+    if (!f || f === res.size) return false;
+    const first = (res.page - 1) * res.size; res.size = f; res.page = Math.floor(first / f) + 1;
+    return true;
   }
   // ---- password reset requests (staff-assisted: confirm identity first, then read the code to the resident)
   async function showCode(out) {
@@ -63,7 +104,11 @@
   });
   setInterval(() => loadResets().catch(() => {}), 30000);
 
-  $('#resPager').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (b && !b.disabled) { res.page = +b.dataset.p; loadResidents().catch(fail); } });
+  $('#resPager').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pg]'); if (!b || b.disabled) return;
+    res.page += b.dataset.pg === 'next' ? 1 : -1; loadResidents().catch(fail);
+    const sc = $('#resScroll'); if (sc) sc.scrollTop = 0;
+  });
   let t; $('#resQ').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => { res.q = e.target.value.trim(); res.page = 1; loadResidents().catch(fail); }, 250); });
   // ---- row menu, details drawer, add / edit
   const zoneField = (v) => zones.length ? { name: 'zone', label: 'Zone / Purok', type: 'select', options: [{ value: '', label: 'Select zone' }, ...zones], value: v || '', required: true } : { name: 'zone', label: 'Zone / Purok', max: 40, value: v || '' };
@@ -168,12 +213,16 @@
     $('#cRsp').textContent = responders.length;
     const q = ($('#rspQ').value || '').trim().toLowerCase();
     const list = responders.filter((r) => !q || `${r.name} ${r.team} ${r.role} ${r.contact}`.toLowerCase().includes(q));
-    $('#rspBody').innerHTML = list.map((r) => `<tr data-id="${esc(r.id)}"><td><b>${esc(r.name)}</b></td><td>${esc(r.team || '—')}</td><td>${esc(r.role || '—')}</td>
+    const { rows: part, pages } = pageOf(list, 'rsp');
+    $('#rspBody').innerHTML = part.map((r) => `<tr data-id="${esc(r.id)}"><td><b>${esc(r.name)}</b></td><td>${esc(r.team || '—')}</td><td>${esc(r.role || '—')}</td>
       <td><span class="pill pill--${AV[r.availability][1]} pill--sm">${AV[r.availability][0]}</span></td><td>${esc(r.contact ? r.contact.slice(0, 4) + ' ••• ' + r.contact.slice(-4) : '—')}</td>
       <td><button class="dots-btn" data-edit aria-label="Edit">${ico('i-edit')}</button><button class="dots-btn" data-del aria-label="Delete" style="color:var(--danger)">${ico('i-trash')}</button></td></tr>`).join('');
     $('#rspEmpty').innerHTML = list.length ? '' : `<div class="empty"><b>${responders.length ? 'No responders match your search' : 'No responders yet'}</b>${responders.length ? '' : 'Add the people on your response teams so they can be assigned to reports.'}</div>`;
+    paintPager($('#rspPager'), pg.rsp, pages);
+    refit('rsp', '#rspScroll', 'tbody tr', drawResponders);
   }
-  $('#rspQ').addEventListener('input', drawResponders);
+  $('#rspQ').addEventListener('input', () => { pg.rsp = 1; drawResponders(); });
+  bindPager('#rspPager', 'rsp', '#rspScroll', drawResponders);
   $('#rspAdd').addEventListener('click', async () => {
     const out = await modal({ title: 'Add responder', submit: 'Add responder', fields: rspFields(), onSubmit: async (v) => { await saveResponders([...responders, v]); return v; } });
     if (out) toast('Responder added', 'ok');
@@ -203,7 +252,11 @@
     { name: 'status', label: 'Status', type: 'select', options: [{ value: 'open', label: 'Open' }, { value: 'standby', label: 'Standby' }, { value: 'closed', label: 'Closed' }], value: c.status || 'standby', full: true }];
   async function loadCenters() {
     centers = await api('/centers'); $('#cCen').textContent = centers.length;
-    $('#cenBody').innerHTML = centers.map((c) => {
+    drawCenters();
+  }
+  function drawCenters() {
+    const { rows: part, pages } = pageOf(centers, 'cen');
+    $('#cenBody').innerHTML = part.map((c) => {
       const pct = c.capacity ? Math.min(100, Math.round((c.occupied / c.capacity) * 100)) : 0, pill = c.status === 'open' ? 'green' : c.status === 'standby' ? 'amber' : 'gray';
       return `<tr data-id="${esc(c.id)}"><td><div class="person"><div><b>${esc(c.name)}</b><small>${esc(c.address || '')}</small></div></div></td>
         <td><div class="center"><span class="center__bar" style="margin-left:0"><span style="width:${pct}%;background:var(--green)"></span></span><span class="center__count">${c.occupied} / ${c.capacity}</span></div></td>
@@ -211,7 +264,10 @@
         <td><button class="dots-btn" data-edit aria-label="Edit">${ico('i-edit')}</button><button class="dots-btn" data-del aria-label="Delete" style="color:var(--danger)">${ico('i-trash')}</button></td></tr>`;
     }).join('');
     $('#cenEmpty').innerHTML = centers.length ? '' : '<div class="empty"><b>No evacuation centers yet</b>Add the covered court, school gym or hall residents should go to. Add coordinates to show it on the map.</div>';
+    paintPager($('#cenPager'), pg.cen, pages);
+    refit('cen', '#cenScroll', 'tbody tr', drawCenters);
   }
+  bindPager('#cenPager', 'cen', '#cenScroll', drawCenters);
   $('#cenAdd').addEventListener('click', async () => {
     if (await modal({ title: 'Add evacuation center', fields: centerFields(), submit: 'Add', onSubmit: (v) => api('/admin/centers', { method: 'POST', body: v }) })) { toast('Center added', 'ok'); loadCenters(); }
   });
@@ -234,12 +290,17 @@
   const RISK = { Low: 'green', Medium: 'amber', High: 'red' };
   function drawZoneTable() {
     const info = (settings && settings.zoneInfo) || {};
-    $('#zoneTable').innerHTML = zones.length ? `<table class="tbl"><thead><tr><th>Zone / Purok</th><th>Purok captain</th><th>Residents</th><th>Flood risk</th><th style="width:60px"></th></tr></thead><tbody>${zones.map((z) => {
+    const { rows: part, pages } = pageOf(zones, 'zon');
+    $('#zoneTable').hidden = !zones.length;
+    $('#zoneTable').innerHTML = zones.length ? `<div class="db__scroll" id="zonScroll"><table class="tbl"><thead><tr><th>Zone / Purok</th><th>Purok captain</th><th>Residents</th><th>Flood risk</th><th style="width:60px"></th></tr></thead><tbody>${part.map((z) => {
       const i = info[z] || {};
       return `<tr data-z="${esc(z)}"><td><b>${esc(z)}</b></td><td>${esc(i.captain || '—')}</td><td>${zoneCounts[z] || 0}</td><td>${i.floodRisk ? `<span class="pill pill--${RISK[i.floodRisk]} pill--sm">${i.floodRisk}</span>` : '—'}</td><td><button class="dots-btn" data-zedit aria-label="Edit ${esc(z)}">${ico('i-edit')}</button></td></tr>`;
-    }).join('')}</tbody></table>` : '';
+    }).join('')}</tbody></table></div><nav class="bk__pager rp__pager" id="zonPager" aria-label="Zone pages"></nav>` : '';
+    if (zones.length) { paintPager($('#zonPager'), pg.zon, pages); refit('zon', '#zonScroll', 'tbody tr', drawZoneTable); }
   }
   $('#zoneTable').addEventListener('click', async (e) => {
+    const pb = e.target.closest('[data-pg]');
+    if (pb) { if (!pb.disabled) { pg.zon += pb.dataset.pg === 'next' ? 1 : -1; drawZoneTable(); const sc = $('#zonScroll'); if (sc) sc.scrollTop = 0; } return; }
     const b = e.target.closest('[data-zedit]'); if (!b) return; const z = b.closest('tr').dataset.z, cur = ((settings.zoneInfo || {})[z]) || {};
     const out = await modal({
       title: `Edit ${z}`, submit: 'Save', fields: [{ name: 'captain', label: 'Purok captain', value: cur.captain, full: true }, { name: 'floodRisk', label: 'Flood risk', type: 'select', options: [{ value: '', label: 'Not set' }, 'Low', 'Medium', 'High'], value: cur.floodRisk || '', full: true }],
@@ -254,6 +315,13 @@
   $('#zoneList').addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (b) saveZones(zones.filter((_, i) => i !== +b.dataset.rm)); });
 
   function fillZoneFilter() { $('#resZone').innerHTML = '<option value="">Zone: All</option>' + zones.map((z) => `<option>${esc(z)}</option>`).join(''); $('#resZone').value = res.zone; }
+  function refitAll() {
+    refit('rsp', '#rspScroll', 'tbody tr', drawResponders);
+    refit('cen', '#cenScroll', 'tbody tr', drawCenters);
+    if (zones.length) refit('zon', '#zonScroll', 'tbody tr', drawZoneTable);
+    if (adjustResidents()) { fitting = true; loadResidents().catch(fail).finally(() => { fitting = false; }); }
+  }
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(refitAll, 150); });
   try {
     settings = await api('/admin/settings'); zones = settings.zones; responders = settings.responders || [];
     try { zoneCounts = (await api('/admin/stats')).zoneCounts || {}; } catch { /* counts are optional */ }

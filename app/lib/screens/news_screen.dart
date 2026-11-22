@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
@@ -14,8 +17,13 @@ const Color _nRedTint = Color(0xFFFDEEF0);
 
 /// News tab: list ⇄ article. The top bar and nav stay put.
 class NewsTab extends StatefulWidget {
-  const NewsTab({super.key, required this.reloadToken});
+  const NewsTab({super.key, required this.reloadToken, this.openId, this.openRequest = 0});
   final int reloadToken;
+
+  /// Announcement to open straight away (from a tapped notification), and a
+  /// counter that goes up each time one is requested.
+  final String? openId;
+  final int openRequest;
 
   @override
   State<NewsTab> createState() => _NewsTabState();
@@ -23,6 +31,22 @@ class NewsTab extends StatefulWidget {
 
 class _NewsTabState extends State<NewsTab> {
   Announcement? _open;
+  String? _pendingId;
+
+  @override
+  void initState() {
+    super.initState();
+    _pendingId = widget.openId;
+  }
+
+  @override
+  void didUpdateWidget(covariant NewsTab old) {
+    super.didUpdateWidget(old);
+    if (widget.openRequest != old.openRequest && widget.openId != null) {
+      _pendingId = widget.openId;
+      _open = null; // back to the list so the requested article can open
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +55,21 @@ class _NewsTabState extends State<NewsTab> {
     return AsyncBody<List<Announcement>>(
       load: Api.announcements,
       reloadToken: widget.reloadToken,
-      builder: (context, list, refresh) =>
-          _NewsList(items: list, onRefresh: refresh, onOpen: (a) => setState(() => _open = a)),
+      builder: (context, list, refresh) {
+        // Open the announcement a notification pointed at, once the list is loaded.
+        final pid = _pendingId;
+        if (pid != null) {
+          _pendingId = null;
+          final match = list.where((a) => a.id == pid);
+          if (match.isNotEmpty) {
+            final a = match.first;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _open = a);
+            });
+          }
+        }
+        return _NewsList(items: list, onRefresh: refresh, onOpen: (a) => setState(() => _open = a));
+      },
     );
   }
 }
@@ -203,6 +240,7 @@ class _NewsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The picture is shown only inside the article, not in this list.
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -214,33 +252,117 @@ class _NewsCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _CategoryLabel(a.category),
-                    const Spacer(),
-                    Text(ago(a.createdAt), style: manrope(11, FontWeight.w500, EhbrColors.muted)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(a.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: manrope(14, FontWeight.w700, EhbrColors.ink)),
-                const SizedBox(height: 4),
-                Text(a.body,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: manrope(12, FontWeight.w400, EhbrColors.muted).copyWith(height: 1.45)),
-              ],
+          // One fixed card size, so every announcement in the list looks the same
+          // whatever the length of its title or message.
+          child: SizedBox(
+            height: 150,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _CategoryLabel(a.category),
+                      const Spacer(),
+                      Text(ago(a.createdAt), style: manrope(11, FontWeight.w500, EhbrColors.muted)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(a.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: manrope(14, FontWeight.w700, EhbrColors.ink)),
+                        const SizedBox(height: 4),
+                        Flexible(
+                          child: Text(a.body,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: manrope(12, FontWeight.w400, EhbrColors.muted).copyWith(height: 1.45)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Announcement picture. Accepts a normal http(s) URL or an inline
+/// `data:image/...;base64,` URL. Fills its parent (cropped to cover) and
+/// shows a quiet placeholder if the image can't be loaded.
+class _AnnouncementImage extends StatefulWidget {
+  const _AnnouncementImage(this.url);
+  final String url;
+
+  @override
+  State<_AnnouncementImage> createState() => _AnnouncementImageState();
+}
+
+class _AnnouncementImageState extends State<_AnnouncementImage> {
+  static const Color _surface = Color(0xFFF3F4F8);
+
+  Uint8List? _bytes;
+
+  bool get _isData => widget.url.startsWith('data:');
+
+  void _decode() {
+    _bytes = null;
+    if (!_isData) return;
+    try {
+      _bytes = base64Decode(widget.url.substring(widget.url.indexOf(',') + 1));
+    } catch (_) {}
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _decode();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnnouncementImage old) {
+    super.didUpdateWidget(old);
+    if (old.url != widget.url) _decode();
+  }
+
+  Widget get _placeholder => Container(
+        color: _surface,
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported_outlined, color: EhbrColors.muted, size: 22),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isData) {
+      final bytes = _bytes;
+      if (bytes == null) return _placeholder;
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+        errorBuilder: (_, __, ___) => _placeholder,
+      );
+    }
+    return Image.network(
+      widget.url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : Container(color: _surface),
+      errorBuilder: (_, __, ___) => _placeholder,
     );
   }
 }
@@ -278,6 +400,20 @@ class _Article extends StatelessWidget {
         Text(stamp(a.createdAt), style: manrope(11, FontWeight.w500, EhbrColors.muted)),
         const SizedBox(height: 8),
         Text(a.title, style: manrope(20, FontWeight.w800, EhbrColors.ink).copyWith(height: 26 / 20)),
+        if (a.imageUrl != null && a.imageUrl!.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _nBorder),
+            ),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _AnnouncementImage(a.imageUrl!),
+            ),
+          ),
+        ],
         const SizedBox(height: 14),
         const Divider(height: 1, thickness: 1, color: _nBorder),
         const SizedBox(height: 14),

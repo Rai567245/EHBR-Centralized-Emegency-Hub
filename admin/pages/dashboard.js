@@ -2,8 +2,46 @@
 (async () => {
   if (!EH.init()) return;
   const { $, esc, api, ago, fail, makeMap, marker, downloadCsv } = EH;
-  const KIND_DOT = { report: 'red', user: 'blue', announcement: 'blue', center: 'green' };
   let map = null, layer = null, last = { stats: null, reports: [], settings: null };
+
+  const DAY = 864e5;
+  const KIND_ICON = { report: 'i-file', user: 'i-users', announcement: 'i-mega', center: 'i-shield' };
+  const icon = (n) => `<svg class="icon" aria-hidden="true"><use href="#${n}"/></svg>`;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+  // refresh button tooltip: when the numbers were last updated
+  function markUpdated() {
+    const t = 'Refresh · updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const b = $('#refreshBtn'); b.title = t; b.setAttribute('aria-label', t);
+  }
+
+  // 7-day report chart, status split and the "needs attention" list (all worked out from the reports already loaded)
+  function renderInsights(reports, centers) {
+    const now = Date.now(), at = (r) => new Date(r.createdAt).getTime();
+    const t0 = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+    const days = Array.from({ length: 7 }, (_, i) => t0(now - (6 - i) * DAY));
+    const counts = days.map((d0) => reports.filter((r) => at(r) >= d0 && at(r) < d0 + DAY).length);
+    const total = counts.reduce((a, b) => a + b, 0), max = Math.max(...counts, 1);
+    const prev = reports.filter((r) => at(r) >= t0(now - 13 * DAY) && at(r) < days[0]).length, diff = total - prev;
+    $('#trendTotal').textContent = total;
+    const tb = $('#trendBars'); tb.classList.toggle('is-empty', !total); tb.dataset.empty = 'No reports filed in the last 7 days';
+    $('#trendDelta').textContent = !total && !prev ? 'No reports in the last 14 days' : diff === 0 ? 'Same as the previous 7 days' : `${diff > 0 ? '▲' : '▼'} ${Math.abs(diff)} ${diff > 0 ? 'more' : 'fewer'} than the previous 7 days`;
+    $('#trendBars').innerHTML = days.map((d0, i) => `<div class="bars__col${i === 6 ? ' is-today' : ''}" title="${plural(counts[i], 'report')}"><b>${counts[i] || ''}</b><i style="height:${Math.max(4, Math.round((counts[i] / max) * 80))}px"></i><span>${new Date(d0).toLocaleDateString(undefined, { weekday: 'short' })}</span></div>`).join('');
+
+    const ST = [['NEW', 'New'], ['VERIFIED', 'Verified'], ['DISPATCHED', 'Dispatched'], ['RESOLVED', 'Resolved'], ['REJECTED', 'Rejected']];
+    const by = (s) => reports.filter((r) => r.status === s).length;
+    $('#statusSplit').innerHTML = ST.map(([s]) => (by(s) ? `<i class="s-${s.toLowerCase()}" style="flex:${by(s)}"></i>` : '')).join('');
+    $('#statusLegend').innerHTML = ST.map(([s, l]) => `<span><i class="s-${s.toLowerCase()}"></i>${l} <b>${by(s)}</b></span>`).join('');
+
+    const open = reports.filter((r) => ['NEW', 'VERIFIED', 'DISPATCHED'].includes(r.status));
+    const rows = [
+      ['i-warn', 'High or critical urgency', 'Open reports to prioritise', open.filter((r) => ['High', 'Critical'].includes(r.urgency)).length, 'reports.html'],
+      ['i-users', 'No team assigned', 'Active reports without a responder', open.filter((r) => r.status !== 'NEW' && !r.assignedTo).length, 'reports.html'],
+      ['i-clock', 'Waiting over 24 hours', 'Reports not yet verified', reports.filter((r) => r.status === 'NEW' && now - at(r) > DAY).length, 'reports.html'],
+      ['i-shield', 'Centers above 85% full', 'Open evacuation centers', centers.filter((c) => c.status === 'open' && c.capacity && c.occupied / c.capacity >= 0.85).length, 'database.html#centers'],
+    ];
+    $('#attention').innerHTML = rows.map(([ic, t, s, n, href]) => `<a class="attn__row${n ? '' : ' is-zero'}" href="${href}"><span class="attn__ico">${icon(ic)}</span><span class="attn__txt">${t}<small>${s}</small></span><span class="attn__n">${n}</span></a>`).join('');
+  }
 
   async function load() {
     const [stats, reports, centers, settings] = await Promise.all([api('/admin/stats'), api('/admin/reports'), api('/centers'), api('/admin/settings')]);
@@ -17,28 +55,48 @@
     $('#sPending').textContent = stats.pendingReports;
     $('#sHaz').textContent = stats.hazardsMonitored;
     $('#sCen').textContent = stats.centersOpen;
+    [['#sActive', stats.activeIncidents], ['#sPending', stats.pendingReports], ['#sHaz', stats.hazardsMonitored], ['#sCen', stats.centersOpen]]
+      .forEach(([s, n]) => $(s).closest('.stat').classList.toggle('is-zero', !n));
     $('#nCen').textContent = centers.length ? `${stats.capacityUsedPct}% of capacity used` : 'No centers added yet';
+    const capBar = $('#barCen');
+    capBar.hidden = !centers.length; if (centers.length) capBar.firstElementChild.style.width = Math.min(100, stats.capacityUsedPct || 0) + '%';
+    markUpdated();
+    try { renderInsights(reports, centers); } catch (e) { console.warn('Insights unavailable', e); }
 
     // priority queue
-    $('#queue').innerHTML = stats.queue.length ? stats.queue.map((r) => `
+    $('#queue').innerHTML = stats.queue.length ? stats.queue.map((r) => {
+      const urg = String(r.urgency || '').toLowerCase();
+      return `
       <a class="queue__item" href="reports.html?q=${encodeURIComponent(r.id)}">
-        <div><p class="queue__title">${esc(r.type)} · ${esc(r.locationText || 'No location')}</p>
-        <p class="queue__meta">${esc(r.id)} · reported ${esc(ago(r.createdAt))} · ${esc(r.urgency)}</p></div>
-        <span class="pill pill--${RP.SC[r.status]}">${esc(r.status)}</span></a>`).join('')
+        <div class="queue__main">
+          <div class="queue__top"><p class="queue__title">${esc(r.type)}</p>${r.urgency ? `<span class="urg urg--${esc(urg)}"><i></i>${esc(r.urgency)}</span>` : ''}</div>
+          <p class="queue__meta">${esc(r.id)} · ${esc(ago(r.createdAt))} · ${r.locationText ? esc(r.locationText) : '<span class="noloc">No location</span>'}</p></div>
+        <span class="pill pill--${RP.SC[r.status]}">${esc(r.status)}</span></a>`;
+    }).join('')
       : (stats.activeIncidents === 0 && stats.pendingReports === 0 ? '<div class="empty"><b>All clear</b>No active incidents or pending reports.</div>' : '<div class="empty"><b>Nothing waiting</b>New resident reports will appear here.</div>');
 
     // activity
-    $('#activity').innerHTML = stats.activity.length ? stats.activity.slice(0, 6).map((a) => `
-      <div class="activity"><i class="dot dot--sm dot--${KIND_DOT[a.kind] || 'gray'}"></i><span class="activity__text">${esc(a.text)}</span><span class="activity__time">${esc(ago(a.at))}</span></div>`).join('')
+    $('#activity').innerHTML = stats.activity.length ? stats.activity.slice(0, 5).map((a) => `
+      <div class="activity"><span class="activity__icon">${icon(KIND_ICON[a.kind] || 'i-clock')}</span><span class="activity__text">${esc(a.text)}</span><span class="activity__time">${esc(ago(a.at))}</span></div>`).join('')
       : '<div class="empty empty--sm">No activity yet.</div>';
 
     // evacuation centers
     $('#centers').innerHTML = centers.length ? centers.slice(0, 4).map((c) => {
       const pct = c.capacity ? Math.min(100, Math.round((c.occupied / c.capacity) * 100)) : 0;
       const pill = c.status === 'open' ? 'green' : c.status === 'standby' ? 'amber' : 'gray';
-      return `<div class="center"><span class="center__name">${esc(c.name)}</span><span class="center__bar"><span style="width:${pct}%;background:var(--green)"></span></span>
-        <span class="center__count">${c.occupied} / ${c.capacity}</span><span class="pill pill--${pill}">${esc(c.status)}</span></div>`;
+      const left = Math.max(0, (c.capacity || 0) - (c.occupied || 0));
+      return `<div class="center center--v2"><div class="center__top"><span class="center__name">${esc(c.name)}</span><span class="pill pill--${pill}">${esc(c.status)}</span></div>
+        <span class="center__bar"><span style="width:${pct}%"></span></span>
+        <div class="center__meta"><span><b>${c.occupied} / ${c.capacity}</b> occupied</span><span>${pct}% full · ${left} left</span></div></div>`;
     }).join('') : '<div class="empty empty--sm">No evacuation centers yet. <a href="database.html#centers">Add one</a>.</div>';
+
+    const sum = $('#centersSum');
+    const openC = centers.filter((c) => c.status === 'open');
+    sum.hidden = !centers.length;
+    if (centers.length) {
+      const cap = openC.reduce((n, c) => n + (c.capacity || 0), 0), occ = openC.reduce((n, c) => n + (c.occupied || 0), 0);
+      sum.innerHTML = `<span>Open <b>${openC.length}</b></span><span>Capacity <b>${cap.toLocaleString()}</b></span><span>Spaces left <b>${Math.max(0, cap - occ).toLocaleString()}</b></span>`;
+    }
 
     // map
     if (!map) map = makeMap($('#miniMap'), settings.mapCenter, 15);
@@ -124,6 +182,10 @@
       w.document.close();
     }
     api('/admin/log-export', { method: 'POST', body: { what: 'daily report ' + out.date, count: reports.length, format: out.format } }).catch(() => {});
+  });
+  $('#refreshBtn').addEventListener('click', async () => {
+    const b = $('#refreshBtn'); b.disabled = true; b.classList.add('is-busy');
+    try { await load(); } catch { $('#liveErr').hidden = false; } finally { b.disabled = false; b.classList.remove('is-busy'); }
   });
   $('#liveRetry').addEventListener('click', () => load().catch(() => { $('#liveErr').hidden = false; }));
   setInterval(() => load().catch(() => { $('#liveErr').hidden = false; }), 30000);

@@ -47,49 +47,52 @@
 
   if (passwordToggle && password) {
 
-    passwordToggle.addEventListener('click', () => {
+    // The icon shows the CURRENT state:
+    // crossed-out eye = password is hidden, open eye = password is visible.
 
-      const isPassword =
-        password.type === 'password';
+    const EYE = `
+      <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    `;
 
-      password.type = isPassword
-        ? 'text'
-        : 'password';
+    const EYE_OFF = `
+      <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9.9 9.9a3 3 0 104.2 4.2"/>
+        <path d="M10.7 5.1A10.4 10.4 0 0112 5c7 0 10 7 10 7a13.2 13.2 0 01-1.7 2.7"/>
+        <path d="M6.6 6.6A13.5 13.5 0 002 12s3 7 10 7a9.7 9.7 0 005.4-1.6"/>
+        <path d="M2 2l20 20"/>
+      </svg>
+    `;
+
+    const setPasswordVisible = (visible) => {
+
+      password.type = visible ? 'text' : 'password';
 
       passwordToggle.setAttribute(
         'aria-label',
-        isPassword ? 'Hide password' : 'Show password'
+        visible ? 'Hide password' : 'Show password'
+      );
+
+      passwordToggle.setAttribute(
+        'title',
+        visible ? 'Hide password' : 'Show password'
       );
 
       passwordToggle.setAttribute(
         'aria-pressed',
-        String(isPassword)
+        String(visible)
       );
 
-      passwordToggle.innerHTML = isPassword
-        ? `
-          <svg viewBox="0 0 24 24"
-               aria-hidden="true">
-            <path d="M3 3l18 18"/>
-            <path d="M10.6 10.6a2 2 0 002.8 2.8"/>
-            <path d="M9.9 5.2A10.8 10.8 0 0112 5
-              c6.5 0 10 7 10 7a16 16 0 01-3
-              3.8"/>
-            <path d="M6.2 6.2A16.5 16.5 0 002
-              12s3.5 7 10 7c1.3 0 2.5-.3
-              3.5-.8"/>
-          </svg>
-        `
-        : `
-          <svg viewBox="0 0 24 24"
-               aria-hidden="true">
-            <path d="M2 12s3.5-7 10-7
-              10 7 10 7-3.5 7-10
-              7-10-7-10-7z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        `;
+      passwordToggle.innerHTML = visible ? EYE : EYE_OFF;
 
+    };
+
+    setPasswordVisible(false);
+
+    passwordToggle.addEventListener('click', () => {
+      setPasswordVisible(password.type === 'password');
     });
 
   }

@@ -1,3 +1,4 @@
+
 'use strict';
 (async () => {
   if (!EH.init()) return;
@@ -27,18 +28,26 @@
     if (layer) layer.remove();
     layer = L.featureGroup().addTo(map);
     const pts = [];
-    // Phase 2 (SEC-38): Wrap resident-supplied strings in esc()
+
+    // Escape resident-supplied strings before displaying them in map tooltips.
     if (filter !== 'center') located.filter((r) => (filter === 'all' || r.kind === filter) && layers[r.kind]).forEach((r) => {
       const m = marker(layer, r.lat, r.lng, r.kind, { radius: r.id === selected ? 12 : 9 });
-      m.bindTooltip(esc(`${r.type} · ${r.locationText || ''}`)); m.on('click', () => showPanel(r)); pts.push([r.lat, r.lng]);
+      m.bindTooltip(esc(`${r.type} · ${r.locationText || ''}`));
+      m.on('click', () => showPanel(r));
+      pts.push([r.lat, r.lng]);
     });
+
     if ((filter === 'all' || filter === 'center') && layers.center) data.centers.filter((c) => c.lat != null).forEach((c) => {
-      marker(layer, c.lat, c.lng, 'center').bindTooltip(esc(`${c.name} · ${c.status}`)); pts.push([c.lat, c.lng]);
+      marker(layer, c.lat, c.lng, 'center').bindTooltip(esc(`${c.name} · ${c.status}`));
+      pts.push([c.lat, c.lng]);
     });
+
     if (layers.block) data.blocks.filter((b) => !b.expired).forEach((b) => {
-      marker(layer, b.lat, b.lng, 'block', { radius: 10 }).bindTooltip(esc(`Road blocked: ${b.title} · ${b.reason}`)).on('click', () => { location.href = 'blockages.html'; });
+      marker(layer, b.lat, b.lng, 'block', { radius: 10 })
+        .bindTooltip(esc(`Road blocked: ${b.title} · ${b.reason}`))
+        .on('click', () => { location.href = 'blockages.html'; });
     });
-    
+
     if (!draw.fitted && pts.length) { map.fitBounds(pts, { padding: [50, 50], maxZoom: 16 }); draw.fitted = true; }
     const noGps = open.length - located.length;
     let note = $('#bigMap .map-note');
@@ -55,15 +64,20 @@
     draw();
     if (selected) { const r = reports.find((x) => x.id === selected); if (r) showPanel(r); }
   }
+
   $$('#mapChips .chip').forEach((c) => c.addEventListener('click', () => {
     $$('#mapChips .chip').forEach((x) => x.classList.toggle('is-on', x === c));
     filter = c.dataset.f; draw();
   }));
+
   const clock = (d) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const offline = () => { $('#mapOfflineText').textContent = `Live updates paused · last updated ${lastOk ? clock(lastOk) : 'never'}. Reconnecting…`; $('#mapOffline').hidden = false; };
+
   $('#mapRetry').addEventListener('click', () => load().catch(offline));
   $('#mStatus').addEventListener('change', (e) => { status = e.target.value; draw(); });
+
   const RLAB = { all: 'All time', hour: 'Last hour', day: 'Last 24 hours', week: 'Last 7 days' };
+
   $('#mRange').addEventListener('click', async () => {
     const iso = (t) => new Date(t).toLocaleDateString('en-CA');
     const out = await EH.modal({
@@ -79,10 +93,22 @@
     range = out.key === 'custom' ? { key: 'custom', from: new Date(out.from + 'T00:00:00').getTime(), to: new Date(out.to + 'T23:59:59').getTime() } : { key: out.key, from: null, to: null };
     $('#mRange').textContent = out.key === 'custom' ? `${out.from} – ${out.to}` : RLAB[out.key]; draw();
   });
+
   $('#mLayers').addEventListener('click', (e) => { e.stopPropagation(); $('#layersPanel').hidden = !$('#layersPanel').hidden; });
   document.addEventListener('click', (e) => { if (!$('#layersPanel').contains(e.target)) $('#layersPanel').hidden = true; });
+
   $$('#layersPanel [data-layer]').forEach((c) => c.addEventListener('change', () => { layers[c.dataset.layer] = c.checked; draw(); }));
-  document.addEventListener('click', (e) => { if (e.target.id === 'mClear') { status = 'active'; range = { key: 'all', from: null, to: null }; $('#mStatus').value = 'active'; $('#mRange').textContent = 'All time'; draw(); } });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'mClear') {
+      status = 'active';
+      range = { key: 'all', from: null, to: null };
+      $('#mStatus').value = 'active';
+      $('#mRange').textContent = 'All time';
+      draw();
+    }
+  });
+
   try { await load(); } catch (e) { fail(e); offline(); }
   setInterval(() => load().catch(offline), 30000);
 })();

@@ -66,6 +66,7 @@ const EH = (() => {
     if (f.type === 'textarea') return `<label class="${cls}">${label}<textarea name="${esc(f.name)}" maxlength="${f.max || 2000}"${f.required ? ' required' : ''} placeholder="${esc(f.placeholder || '')}">${esc(v)}</textarea></label>`;
     return `<label class="${cls}">${label}<input class="input" name="${esc(f.name)}" type="${f.type || 'text'}" value="${esc(v)}"${f.step ? ` step="${f.step}"` : ''}${f.min !== undefined ? ` min="${f.min}"` : ''}${f.required ? ' required' : ''} maxlength="${f.max || 200}" placeholder="${esc(f.placeholder || '')}" autocomplete="off"></label>`;
   }
+
   // ---- Incident Map chip row: finds the real chip container, makes it a swipe/drag/wheel scroller
   function setupChipStrip() {
     const bar = $('.im__bar, .rp__bar'); if (!bar) return;
@@ -74,7 +75,7 @@ const EH = (() => {
       if (wired === strip) return; wired = strip;
       let down = null, moved = false;
       strip.addEventListener('pointerdown', (e) => {
-        if (e.pointerType !== 'mouse' || e.button !== 0) return;      // touch scrolls natively
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
         down = { x: e.clientX, left: strip.scrollLeft }; moved = false;
       });
       addEventListener('pointermove', (e) => {
@@ -86,7 +87,7 @@ const EH = (() => {
       const end = () => { if (!down) return; down = null; strip.classList.remove('is-dragging'); };
       addEventListener('pointerup', end); addEventListener('pointercancel', end);
       strip.addEventListener('click', (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
-      strip.addEventListener('wheel', (e) => {                        // mouse wheel scrolls the chips sideways when they overflow
+      strip.addEventListener('wheel', (e) => {
         if (strip.scrollWidth <= strip.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
         const max = strip.scrollWidth - strip.clientWidth;
         if ((e.deltaY < 0 && strip.scrollLeft <= 0) || (e.deltaY > 0 && strip.scrollLeft >= max - 1)) return;
@@ -94,13 +95,12 @@ const EH = (() => {
       }, { passive: false });
     };
     const apply = () => {
-      // tag empty layout spacers in the bar so phones can hide them (they push the filters off to the right)
       [...bar.children].forEach((c) => {
         if (!c.classList.contains('is-spacer') && !c.children.length && !c.textContent.trim() && !/^(INPUT|SELECT|HR|IMG)$/.test(c.tagName)) c.classList.add('is-spacer');
       });
       const first = $('.chip', bar); if (!first) return;
       let strip = first.parentElement;
-      if (strip === bar) {                                            // chips sit directly in the bar: group them
+      if (strip === bar) {
         strip = document.createElement('div'); first.before(strip);
         [...bar.querySelectorAll(':scope > .chip')].forEach((c) => strip.appendChild(c));
       }
@@ -110,7 +110,8 @@ const EH = (() => {
     apply();
     new MutationObserver(apply).observe(bar, { childList: true, subtree: true });
   }
-  // ---- Reports table: copies each column header onto its cells (data-label) so rows can render as cards on phones
+
+  // ---- Reports table: copies each column header onto its cells
   function setupResponsiveTables() {
     const host = $('.rp, .db'); if (!host) return;
     const label = () => host.querySelectorAll('table.tbl').forEach((tbl) => {
@@ -120,8 +121,8 @@ const EH = (() => {
     label();
     new MutationObserver(label).observe(host, { childList: true, subtree: true });
   }
-  // ---- Announcements feed: category filter chips, 3-line messages with "Read more", and "Show 5 more".
-  // Works on the rendered cards (.an__item), wherever they are, and re-applies itself whenever the page redraws the list.
+
+  // ---- Announcements feed
   function setupAnnouncementsFeed() {
     if (!$('.an, .an__list, .an__form')) return;
     const root = $('.content') || document.body;
@@ -129,7 +130,7 @@ const EH = (() => {
     let filter = 'all', shown = STEP, lastCount = 0, raf = 0;
     const obs = new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); });
     const catOf = (el) => { const t = el.querySelector('.an__head > :first-child'); return t ? t.textContent.trim().toLowerCase() : ''; };
-    const measure = (el) => {                                    // clamp the message to 3 lines and add "Read more" when it overflows
+    const measure = (el) => {
       const p = el.querySelector(':scope > p'); if (!p || el.hidden || !p.offsetParent) return;
       let btn = el.querySelector(':scope > .an__more');
       if (!btn) {
@@ -144,7 +145,7 @@ const EH = (() => {
       obs.disconnect();
       root.querySelectorAll('.an__filters, .an__foot, .an__empty').forEach((n) => n.remove());
       const all = [...root.querySelectorAll('.an__item')];
-      if (all.length > lastCount && lastCount > 0) { filter = 'all'; shown = STEP; }       // a new announcement: show it at the top
+      if (all.length > lastCount && lastCount > 0) { filter = 'all'; shown = STEP; }
       lastCount = all.length;
       const cats = all.map(catOf), count = (k) => (k === 'all' ? all.length : cats.filter((c) => c === k).length);
       if (filter !== 'all' && !count(filter)) filter = 'all';
@@ -178,8 +179,8 @@ const EH = (() => {
     let rz = 0; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => root.querySelectorAll('.an__item').forEach(measure), 150); });
     render();
   }
-  // ---- custom date / date-time picker: replaces <input type="date|datetime-local"> (the real input stays hidden as the source of truth).
-  // Desktop: popover under the field. Phones: bottom sheet. The native browser picker can't be styled and spills off small screens.
+
+  // ---- custom date / date-time picker
   function enhanceDates(root, selector) {
     const dV = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
     const pad = (n) => String(n).padStart(2, '0');
@@ -294,14 +295,14 @@ const EH = (() => {
       }
       btn.addEventListener('click', () => (pop ? close() : open()));
       btn.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop) { e.stopPropagation(); close(); } else if (e.key === 'ArrowDown' && !pop) { e.preventDefault(); open(); } });
-      // keep the label in step when page code sets the value directly or resets the form
       Object.defineProperty(inp, 'value', { configurable: true, get() { return dV.get.call(this); }, set(v) { dV.set.call(this, v); paint(); } });
       if (inp.form) inp.form.addEventListener('reset', () => setTimeout(paint, 0));
       new MutationObserver(() => { wrap.hidden = inp.hidden; btn.disabled = inp.disabled; }).observe(inp, { attributes: true, attributeFilter: ['disabled', 'hidden'] });
       paint();
     });
   }
-  // ---- Database page on phones: tidy filter bar, custom dropdowns for re-rendered filters, active tab slides into view
+
+  // ---- Database page on phones
   function setupDatabaseUi() {
     const host = $('.db'); if (!host) return;
     const tidy = () => {
@@ -315,7 +316,8 @@ const EH = (() => {
     host.addEventListener('click', (e) => { if (e.target.closest('.tab')) { setTimeout(glide, 0); setTimeout(glide, 250); } });
     new MutationObserver(tidy).observe(host, { childList: true, subtree: true });
   }
-  // ---- custom dropdown: replaces a native <select> (the real select stays hidden as the source of truth)
+
+  // ---- custom dropdown
   function enhanceSelects(root, selector = '.fld select') {
     const proto = HTMLSelectElement.prototype;
     const dValue = Object.getOwnPropertyDescriptor(proto, 'value'), dIndex = Object.getOwnPropertyDescriptor(proto, 'selectedIndex');
@@ -362,7 +364,6 @@ const EH = (() => {
         document.removeEventListener('mousedown', onDoc, true); document.removeEventListener('scroll', onScroll, true); removeEventListener('resize', close);
       }
       const choose = (i) => { sel.selectedIndex = i; active = i; sel.dispatchEvent(new Event('change', { bubbles: true })); close(); btn.focus(); };
-      // keep the custom label in step when page code sets the value directly
       Object.defineProperty(sel, 'value', { configurable: true, get() { return dValue.get.call(this); }, set(v) { dValue.set.call(this, v); paint(); } });
       Object.defineProperty(sel, 'selectedIndex', { configurable: true, get() { return dIndex.get.call(this); }, set(v) { dIndex.set.call(this, v); paint(); } });
       new MutationObserver((m) => { if (m.some((x) => x.type === 'childList')) build(); sync(); })
@@ -382,6 +383,7 @@ const EH = (() => {
       build(); sync();
     });
   }
+
   function modal({ title, sub = '', fields = [], submit = 'Save', danger = false, onSubmit, onOpen }) {
     return new Promise((resolve) => {
       const bg = document.createElement('div');
@@ -410,7 +412,7 @@ const EH = (() => {
         catch (err) { errEl.textContent = err.message; errEl.hidden = false; btn.disabled = false; }
       });
       if (onOpen) onOpen(bg, form);
-      const first = $('input:not(.cs-native), textarea, .cs__btn', form); if (first) first.focus(); else $('[type=submit]', bg).focus();
+      const first = $('input:not(.cs-native), textarea, .cs__btn', form); if (first) first.focus(); else $('[type=submit]', form).focus();
     });
   }
   const confirmBox = (title, sub, submit = 'Confirm', danger = true) => modal({ title, sub, submit, danger }).then((r) => r !== null);
@@ -423,11 +425,10 @@ const EH = (() => {
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }
 
-  // ---- maps (Leaflet is vendored in /admin/vendor/leaflet)
+  // ---- maps
   const COLORS = { incident: '#d32f2f', hazard: '#f59e0b', center: '#34c759', block: '#111827' };
-  // Keeps the map inside the barangay's service area (centre + radiusKm). radiusKm 0/undefined = unlimited.
   function areaBounds(c) {
-    if (c && c.boundary && c.boundary.length >= 3) {            // exact border: its bounding box plus 15% room
+    if (c && c.boundary && c.boundary.length >= 3) {
       const la = c.boundary.map((p) => p[0]), lo = c.boundary.map((p) => p[1]);
       const a = Math.min(...la), b = Math.max(...la), x = Math.min(...lo), y = Math.max(...lo), pa = (b - a) * 0.15 + 0.0005, px = (y - x) * 0.15 + 0.0005;
       return [[a - pa, x - px], [b + pa, y + px]];
@@ -453,7 +454,7 @@ const EH = (() => {
   // ---- page chrome
   function currentUser() { try { return JSON.parse(localStorage.getItem(USER)); } catch { return null; } }
 
-  // ---- topbar extras: notifications panel (bell) and search suggestions
+  // ---- topbar extras: notifications panel and search suggestions
   function topbarExtras() {
     const SEEN = 'ehbr_admin_seen';
     const seen = () => localStorage.getItem(SEEN) || '1970-01-01T00:00:00Z';
@@ -463,11 +464,22 @@ const EH = (() => {
       const panel = document.createElement('div'); panel.className = 'dd bellpanel'; panel.hidden = true; document.body.appendChild(panel);
       let items = [], tab = 'all';
       const unread = () => items.filter((i) => i.at > seen());
+      // Where a notification should open. Entries with nothing to open (audit, export, settings) are plain text.
+      const hrefFor = (i) => {
+        const id = (String(i.text).match(/EH-\d+/) || [])[0];
+        if (id) return 'reports.html?q=' + encodeURIComponent(id);
+        if (/blockage/i.test(i.text)) return 'blockages.html';
+        if (i.kind === 'announcement') return 'announcements.html';
+        if (i.kind === 'center') return 'database.html#centers';
+        if (i.kind === 'user') return 'database.html';
+        if (i.kind === 'report') return 'reports.html';
+        return '';
+      };
       const draw = () => {
         const u = unread(), list = tab === 'unread' ? u : items;
         panel.innerHTML = `<div class="dd__head"><b>Notifications</b><button type="button" data-readall>Mark all read</button></div>
           <div class="dd__tabs"><button type="button" data-tab="all" class="${tab === 'all' ? 'is-on' : ''}">All</button><button type="button" data-tab="unread" class="${tab === 'unread' ? 'is-on' : ''}">Unread (${u.length})</button></div>
-          <div class="dd__list">${list.length ? list.slice(0, 12).map((i) => `<a class="dd__item${i.at > seen() ? ' is-new' : ''}" href="${/EH-\d+/.test(i.text) ? 'reports.html?q=' + encodeURIComponent(i.text.match(/EH-\d+/)[0]) : '#'}"><span>${esc(i.text)}</span><time>${esc(ago(i.at))}</time></a>`).join('') : '<p class="dd__empty">You’re all caught up.</p>'}</div>
+          <div class="dd__list">${list.length ? list.slice(0, 12).map((i) => { const h = hrefFor(i), cls = `dd__item${i.at > seen() ? ' is-new' : ''}`, inner = `<span>${esc(i.text)}</span><time>${esc(ago(i.at))}</time>`; return h ? `<a class="${cls}" href="${h}">${inner}</a>` : `<div class="${cls}">${inner}</div>`; }).join('') : '<p class="dd__empty">You’re all caught up.</p>'}</div>
           <a class="dd__foot" href="reports.html">View all reports</a>`;
         $('[data-readall]', panel).onclick = () => { localStorage.setItem(SEEN, new Date().toISOString()); draw(); const d = $('.bell-dot'); if (d) d.hidden = true; };
         panel.querySelectorAll('[data-tab]').forEach((b) => { b.onclick = () => { tab = b.dataset.tab; draw(); }; });
@@ -479,7 +491,6 @@ const EH = (() => {
         try { items = (await api('/admin/feed')).items; } catch { items = []; }
         draw(); panel.hidden = false;
       });
-      // composedPath() is captured at dispatch time, so it still includes the panel after draw() replaces the clicked button
       document.addEventListener('click', (e) => { if (!e.composedPath().includes(panel)) panel.hidden = true; });
     }
     const input = $('#globalSearch');
@@ -508,7 +519,7 @@ const EH = (() => {
     }
   }
 
-  // ---- mobile navigation drawer (burger menu, ≤860px; styles live in styles.css)
+  // ---- mobile navigation drawer
   function setupNav() {
     const app = $('.app'), side = $('.sidebar'), bar = $('.topbar'), main = $('.main');
     if (!app || !side || !bar || $('.nav-toggle')) return;
@@ -522,7 +533,6 @@ const EH = (() => {
     btn.setAttribute('aria-label', 'Open menu'); btn.setAttribute('aria-controls', side.id); btn.setAttribute('aria-expanded', 'false');
     btn.innerHTML = burger;
 
-    // dark app bar (phones / small tablets): burger + brand, sits above the white title bar
     const appbar = document.createElement('div');
     appbar.className = 'appbar';
     appbar.innerHTML = '<div class="brand__logo" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>'
@@ -552,7 +562,6 @@ const EH = (() => {
     btn.addEventListener('click', () => set(true));
     closeBtn.addEventListener('click', () => set(false));
     back.addEventListener('click', () => set(false));
-    // Tapping a section: slide the drawer shut first, then navigate (otherwise the page reload cuts the animation off)
     side.addEventListener('click', (e) => {
       const a = e.target.closest('a.nav__item'); if (!a) return;
       const open = app.classList.contains('nav-open');
@@ -566,7 +575,7 @@ const EH = (() => {
       setTimeout(() => { location.href = a.href; }, still ? 0 : 220);
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !$('.modal-backdrop')) set(false);   // let an open dialog handle its own Esc
+      if (e.key === 'Escape' && !$('.modal-backdrop')) set(false);
     });
     const onChange = (e) => { if (!e.matches) set(false, false); };
     if (mq.addEventListener) mq.addEventListener('change', onChange); else mq.addListener(onChange);
@@ -575,7 +584,7 @@ const EH = (() => {
   function init() {
     const u = currentUser();
     if (!localStorage.getItem(TOKEN) || !u || u.role !== 'admin') { location.href = 'login.html'; return null; }
-    
+
     // Phase 2 (SEC-13): 15-minute idle timeout
     let idleTimer;
     const resetIdle = () => {
@@ -583,7 +592,7 @@ const EH = (() => {
       idleTimer = setTimeout(() => {
         logout();
         alert('Your session has timed out due to inactivity.');
-      }, 15 * 60 * 1000); // 15 minutes
+      }, 15 * 60 * 1000);
     };
     ['click', 'scroll', 'keydown', 'mousemove', 'touchstart'].forEach(e => document.addEventListener(e, resetIdle, { passive: true }));
     resetIdle();
@@ -592,7 +601,6 @@ const EH = (() => {
     const sub = $('.user__place'); if (sub) sub.textContent = 'Administrator';
     const out = $('#logoutBtn'); if (out) out.addEventListener('click', async () => { if (await confirmBox('Sign out of Admin Console?', 'You will need to sign in again to manage incidents and reports. Unsent changes will be lost.', 'Sign Out', false)) logout(); });
 
-    // ---- account menu (click the name at the bottom of the sidebar)
     const box = $('.user');
     if (box && !box.querySelector('.acct-menu')) {
       box.style.position = 'relative';
@@ -632,7 +640,6 @@ const EH = (() => {
     setupResponsiveTables();
     setupAnnouncementsFeed();
     setupDatabaseUi();
-    // Incident Map chips: glide the selected chip into view (the chip row scrolls sideways on phones)
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.im__bar .chip, .rp__bar .chip')) return;
       const glide = () => { const on = $('.im__bar .chip.is-on, .rp__bar .chip.is-on'); if (on) on.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); };
@@ -643,6 +650,7 @@ const EH = (() => {
     topbarExtras();
     return u;
   }
+
   async function refreshBadge() {
     try {
       const s = await api('/admin/stats');

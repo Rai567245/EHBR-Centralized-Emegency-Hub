@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/api.dart';
 import '../services/session.dart';
@@ -132,6 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.fromLTRB(16, 40, 16, 24),
           child: Form(
             key: _form,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -178,14 +180,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.phone,
                   style: manrope(13, FontWeight.w500, EhbrColors.ink),
                   cursorColor: _red,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(11),
+                  ],
                   decoration: _decoration(
                     hint: 'Enter your contact number',
                     icon: Icons.phone_outlined,
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().length < 7) {
-                      return 'Enter a valid contact number';
-                    }
+                    final text = v ?? '';
+                    if (text.isEmpty) return 'Enter your contact number';
+                    if (!text.startsWith('09')) return 'Must start with 09 (e.g., 0912...)';
+                    if (text.length < 11) return 'Must be exactly 11 digits';
                     return null;
                   },
                 ),
@@ -200,6 +207,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: _hide,
                   style: manrope(13, FontWeight.w500, EhbrColors.ink),
                   cursorColor: _red,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(64),
+                  ],
                   decoration: _decoration(
                     hint: 'Enter password',
                     icon: Icons.lock_outline_rounded,
@@ -226,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   onFieldSubmitted: (_) => _login(),
                 ),
-
+                
                 const SizedBox(height: 12),
 
                 // Remember Me and Forgot Password

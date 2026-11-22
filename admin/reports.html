@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reports · Emergency Hub Admin</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -61,31 +62,36 @@
       <div><h1 class="topbar__title">Reports</h1><p class="topbar__sub" id="pageSub">Triage, verify and dispatch resident reports</p></div>
       <div class="topbar__spacer"></div>
       <label class="search"><svg class="icon "><use href="#i-search"/></svg><input id="globalSearch" type="search" placeholder="Search reports (press Enter)"></label>
+      <button class="btn btn--primary btn--sm btn--fit" id="newReportBtn" type="button"><svg class="icon"><use href="#i-plus"/></svg><span class="btn__label">New Report</span></button>
       <a class="icon-btn" href="reports.html" aria-label="Reports"><svg class="icon "><use href="#i-bell"/></svg><span class="bell-dot" hidden></span></a>
     </header>
     <main class="rp">
       <div class="rp__bar"><div class="chips" id="rpChips">
           <button class="chip is-on" data-f="ALL">All <span data-n="ALL">0</span></button>
-          <button class="chip" data-f="NEW">New <span data-n="NEW">0</span></button>
-          <button class="chip" data-f="VERIFIED">Verified <span data-n="VERIFIED">0</span></button>
-          <button class="chip" data-f="DISPATCHED">Dispatched <span data-n="DISPATCHED">0</span></button>
-          <button class="chip" data-f="RESOLVED">Resolved <span data-n="RESOLVED">0</span></button>
-          <button class="chip" data-f="REJECTED">Rejected <span data-n="REJECTED">0</span></button></div>
-        <span class="grow"></span>
+          <button class="chip" data-f="NEW"><i class="dot dot--blue dot--sm"></i>New <span data-n="NEW">0</span></button>
+          <button class="chip" data-f="VERIFIED"><i class="dot dot--green dot--sm"></i>Verified <span data-n="VERIFIED">0</span></button>
+          <button class="chip" data-f="DISPATCHED"><i class="dot dot--red dot--sm"></i>Dispatched <span data-n="DISPATCHED">0</span></button>
+          <button class="chip" data-f="RESOLVED"><i class="dot dot--gray dot--sm"></i>Resolved <span data-n="RESOLVED">0</span></button>
+          <button class="chip" data-f="REJECTED"><i class="dot dot--gray dot--sm"></i>Rejected <span data-n="REJECTED">0</span></button></div>
+        <span class="grow"></span><i class="bar-div" aria-hidden="true"></i>
         <select class="sel" id="fType" aria-label="Type"><option value="">Type: All</option></select>
         <select class="sel" id="fUrg" aria-label="Urgency"><option value="">Urgency: All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
         <button class="btn btn--sm" id="filtersBtn"><svg class="icon "><use href="#i-sliders"/></svg>Filters<span class="chip__dot" id="advDot" hidden></span></button>
         <button class="btn btn--sm" id="exportBtn"><svg class="icon "><use href="#i-dl"/></svg>Export</button></div>
       <div class="rp__body">
-        <div class="table-card"><table class="tbl tbl--click" id="rpTable">
+        <div class="table-card"><div class="rp__scroll"><table class="tbl tbl--click" id="rpTable">
           <thead><tr><th>Report</th><th>Type</th><th>Location</th><th>Urgency</th><th>Reported</th><th>Status</th></tr></thead>
           <tbody id="rpBody"></tbody></table><div id="rpEmpty"></div></div>
+          <nav class="bk__pager rp__pager" id="rpPager" aria-label="Report pages" hidden></nav></div>
         <aside class="panel" id="panel"><div class="empty"><b>No report selected</b>Select a report to review it.</div></aside>
       </div></main>
   </div>
 </div>
+<script src="vendor/leaflet/leaflet.js"></script>
 <script src="app.js"></script>
+<script src="locpicker.js"></script>
 <script src="reportpanel.js"></script>
 <script src="pages/reports.js"></script>
+<script src="sidebar.js"></script>
 </body>
 </html>

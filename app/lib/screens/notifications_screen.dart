@@ -13,8 +13,22 @@ const Color _nBorder = Color(0xFFE2E4EA);
 const Color _nSurface = Color(0xFFF3F4F8);
 const Color _nRedTint = Color(0xFFFDEEF0);
 
-/// The bell: everything the barangay sent you. Pops with the tab to open
-/// (1 = Map, 3 = News, 4 = Profile) when a notification is tapped.
+/// Where a tapped notification should take the resident.
+class NotificationTarget {
+  const NotificationTarget(this.tab, this.kind, this.refId);
+
+  /// Tab to open (1 = Map, 3 = News, 4 = Profile).
+  final int tab;
+
+  /// announcement | report | alert | security
+  final String kind;
+
+  /// Id of the announcement or report, empty when there is none.
+  final String refId;
+}
+
+/// The bell: everything the barangay sent you. Pops with a [NotificationTarget]
+/// (tab plus the announcement or report to open) when a notification is tapped.
 ///
 /// Long-press a notification (or tap "Select") to remove one or several at once.
 /// Removing hides them on THIS phone only; nothing is deleted on the server.
@@ -59,7 +73,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final kept = stored.intersection(feed.items.map((n) => n.id).toSet());
       if (kept.length != stored.length) await prefs.setStringList(_key, kept.toList());
       _dismissed = kept;
-    } catch (e) {
+    } catch (_) {
       // If saving is not possible, nothing is hidden; the list still works.
     }
   }
@@ -68,14 +82,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_key, _dismissed.toList());
-    } catch (e) {
-      debugPrint('Failed to save dismissed notifications: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Warning: Failed to save preferences.')),
-        );
-      }
-    }
+    } catch (_) {}
   }
 
   Future<NotificationFeed> _load() async {
@@ -283,7 +290,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 selected: _selected.contains(items[i].id),
                                 onTap: () => _selecting
                                     ? _toggle(items[i].id)
-                                    : Navigator.of(context).pop(NotificationsScreen._tab(items[i].kind)),
+                                    : Navigator.of(context).pop(NotificationTarget(
+                                        NotificationsScreen._tab(items[i].kind),
+                                        items[i].kind,
+                                        items[i].refId,
+                                      )),
                                 onLongPress: _selecting ? null : () => _enterSelect(items[i].id),
                               ),
                             ),
@@ -433,54 +444,64 @@ class _NotificationCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (selecting) ...[
-                _Check(selected: selected),
-                const SizedBox(width: 12),
-              ],
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(color: _nSurface, borderRadius: BorderRadius.circular(10)),
-                child: Icon(NotificationsScreen._icon(n.kind), color: EhbrColors.ink, size: 19),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(n.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: manrope(13, FontWeight.w700, EhbrColors.ink)),
-                        ),
-                        if (n.unread)
-                          const Padding(
-                            padding: EdgeInsets.only(left: 8),
-                            child: Icon(Icons.circle, size: 9, color: EhbrColors.brand),
-                          ),
-                      ],
-                    ),
-                    if (n.body.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(n.body,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: manrope(12, FontWeight.w400, EhbrColors.muted).copyWith(height: 1.4)),
-                    ],
-                    const SizedBox(height: 6),
-                    Text(ago(n.createdAt), style: manrope(11, FontWeight.w500, EhbrColors.muted)),
-                  ],
+        // One fixed card size, so every notification looks the same
+        // whatever the length of its title or message.
+        child: SizedBox(
+          height: 120,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (selecting) ...[
+                  _Check(selected: selected),
+                  const SizedBox(width: 12),
+                ],
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: _nSurface, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(NotificationsScreen._icon(n.kind), color: EhbrColors.ink, size: 19),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(n.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: manrope(13, FontWeight.w700, EhbrColors.ink)),
+                              ),
+                              if (n.unread)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: Icon(Icons.circle, size: 9, color: EhbrColors.brand),
+                                ),
+                            ],
+                          ),
+                          if (n.body.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(n.body,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: manrope(12, FontWeight.w400, EhbrColors.muted).copyWith(height: 1.4)),
+                          ],
+                        ],
+                      ),
+                      Text(ago(n.createdAt), style: manrope(11, FontWeight.w500, EhbrColors.muted)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

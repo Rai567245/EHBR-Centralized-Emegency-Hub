@@ -1,8 +1,16 @@
 double? _d(dynamic v) => (v as num?)?.toDouble();
 
 class AppUser {
-  AppUser({required this.id, required this.role, required this.firstName, required this.lastName,
-      required this.contact, required this.address, required this.zone, this.email = ''});
+  AppUser({
+    required this.id,
+    required this.role,
+    required this.firstName,
+    required this.lastName,
+    required this.contact,
+    required this.address,
+    required this.zone,
+    this.email = '',
+  });
 
   final String id, role, firstName, lastName, contact, address, zone, email;
 
@@ -32,11 +40,19 @@ class AppUser {
 }
 
 class ContactEntry {
-  ContactEntry({required this.name, required this.number, required this.category});
+  ContactEntry({
+    required this.name,
+    required this.number,
+    required this.category,
+  });
+
   final String name, number, category; // category: local | utility
 
   factory ContactEntry.fromJson(Map<String, dynamic> j) => ContactEntry(
-      name: j['name'] as String, number: j['number'] as String, category: (j['category'] ?? 'local') as String);
+        name: j['name'] as String,
+        number: j['number'] as String,
+        category: (j['category'] ?? 'local') as String,
+      );
 }
 
 class AppConfig {
@@ -89,7 +105,10 @@ class AppConfig {
     final sos = (j['sos'] ?? {}) as Map<String, dynamic>;
     final mc = (j['mapCenter'] ?? {}) as Map<String, dynamic>;
     final types = (j['reportTypes'] ?? {}) as Map<String, dynamic>;
-    List<String> strs(dynamic v) => ((v ?? []) as List).map((e) => e as String).toList();
+
+    List<String> strs(dynamic v) =>
+        ((v ?? []) as List).map((e) => e as String).toList();
+
     return AppConfig(
       barangayName: (b['name'] ?? '') as String,
       city: (b['city'] ?? '') as String,
@@ -101,7 +120,11 @@ class AppConfig {
       radiusKm: _d(mc['radiusKm']) ?? 0,
       boundary: [
         for (final p in ((mc['boundary'] ?? const []) as List))
-          if (p is List && p.length >= 2 && _d(p[0]) != null && _d(p[1]) != null) [_d(p[0])!, _d(p[1])!],
+          if (p is List &&
+              p.length >= 2 &&
+              _d(p[0]) != null &&
+              _d(p[1]) != null)
+            [_d(p[0])!, _d(p[1])!],
       ],
       zones: strs(j['zones']),
       allowAnonymous: (j['allowAnonymous'] ?? true) as bool,
@@ -116,9 +139,20 @@ class AppConfig {
 }
 
 class Announcement {
-  Announcement({required this.id, required this.category, required this.title, required this.body, required this.createdAt});
+  Announcement({
+    required this.id,
+    required this.category,
+    required this.title,
+    required this.body,
+    required this.createdAt,
+    this.imageUrl,
+  });
+
   final String id, category, title, body; // category: alert | advisory | event
   final DateTime createdAt;
+
+  /// Optional picture attached by the barangay (full URL).
+  final String? imageUrl;
 
   factory Announcement.fromJson(Map<String, dynamic> j) => Announcement(
         id: j['id'] as String,
@@ -126,13 +160,24 @@ class Announcement {
         title: j['title'] as String,
         body: j['body'] as String,
         createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
+        imageUrl:
+            (j['imageUrl'] ?? '') == '' ? null : j['imageUrl'] as String,
       );
 }
 
 /// A road the barangay has marked as blocked (cleared by the admin when it reopens).
 class Blockage {
-  Blockage({required this.id, required this.title, required this.reason, required this.details,
-      required this.lat, required this.lng, this.until, required this.createdAt});
+  Blockage({
+    required this.id,
+    required this.title,
+    required this.reason,
+    required this.details,
+    required this.lat,
+    required this.lng,
+    this.until,
+    required this.createdAt,
+  });
+
   final String id, title, reason, details;
   final double lat, lng;
   final DateTime? until;
@@ -145,14 +190,25 @@ class Blockage {
         details: (j['details'] ?? '') as String,
         lat: (j['lat'] as num).toDouble(),
         lng: (j['lng'] as num).toDouble(),
-        until: (j['until'] ?? '') == '' ? null : DateTime.tryParse(j['until'] as String)?.toLocal(),
+        until: (j['until'] ?? '') == ''
+            ? null
+            : DateTime.tryParse(j['until'] as String)?.toLocal(),
         createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
       );
 }
 
 class EvacCenter {
-  EvacCenter({required this.id, required this.name, required this.address, this.lat, this.lng,
-      required this.capacity, required this.occupied, required this.status});
+  EvacCenter({
+    required this.id,
+    required this.name,
+    required this.address,
+    this.lat,
+    this.lng,
+    required this.capacity,
+    required this.occupied,
+    required this.status,
+  });
+
   final String id, name, address, status; // status: open | standby | closed
   final double? lat, lng;
   final int capacity, occupied;
@@ -171,19 +227,50 @@ class EvacCenter {
 
 class TimelineEntry {
   TimelineEntry(this.at, this.text);
+
   final DateTime at;
   final String text;
 }
 
 class Report {
-  Report({required this.id, required this.type, required this.kind, required this.description,
-      required this.urgency, required this.locationText, this.lat, this.lng, required this.status,
-      required this.createdAt, required this.timeline});
+  Report({
+    required this.id,
+    required this.type,
+    required this.kind,
+    required this.description,
+    required this.urgency,
+    required this.locationText,
+    this.lat,
+    this.lng,
+    required this.status,
+    required this.createdAt,
+    required this.timeline,
+    this.rejectReason,
+    this.rejectNote,
+    this.needsInfo = false,
+    this.infoMessage,
+  });
 
   final String id, type, kind, description, urgency, locationText, status;
   final double? lat, lng;
   final DateTime createdAt;
   final List<TimelineEntry> timeline;
+
+  /// Reason selected by barangay staff when rejecting this report.
+  final String? rejectReason;
+
+  /// Optional additional explanation entered by barangay staff.
+  final String? rejectNote;
+
+  /// The barangay asked for more details and is still waiting for an answer.
+  final bool needsInfo;
+
+  /// What they asked. Null for requests made before the server stored it.
+  final String? infoMessage;
+
+  /// True when the resident can still answer from the app.
+  bool get canReply =>
+      needsInfo && const ['NEW', 'VERIFIED', 'DISPATCHED'].contains(status);
 
   factory Report.fromJson(Map<String, dynamic> j) => Report(
         id: j['id'] as String,
@@ -197,15 +284,33 @@ class Report {
         status: j['status'] as String,
         createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
         timeline: ((j['timeline'] ?? []) as List)
-            .map((e) => TimelineEntry(DateTime.parse(e['at'] as String).toLocal(), e['text'] as String))
+            .map(
+              (e) => TimelineEntry(
+                DateTime.parse(e['at'] as String).toLocal(),
+                e['text'] as String,
+              ),
+            )
             .toList(),
+        rejectReason: j['rejectReason'] as String?,
+        rejectNote: j['rejectNote'] as String?,
+        needsInfo: j['infoRequested'] != null,
+        infoMessage: j['infoMessage'] as String?,
       );
 }
 
 /// A verified/dispatched report visible to every resident.
 class PublicReport {
-  PublicReport({required this.id, required this.type, required this.kind, required this.urgency,
-      required this.status, required this.locationText, this.lat, this.lng, required this.createdAt});
+  PublicReport({
+    required this.id,
+    required this.type,
+    required this.kind,
+    required this.urgency,
+    required this.status,
+    required this.locationText,
+    this.lat,
+    this.lng,
+    required this.createdAt,
+  });
 
   final String id, type, kind, urgency, status, locationText;
   final double? lat, lng;
@@ -225,25 +330,38 @@ class PublicReport {
 }
 
 class AppNotification {
-  AppNotification({required this.id, required this.kind, required this.title, required this.body,
-      required this.createdAt, required this.unread});
+  AppNotification({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.body,
+    required this.createdAt,
+    required this.unread,
+    this.refId = '',
+  });
 
   final String id, kind, title, body; // kind: announcement | report | alert
+
+  /// The announcement, report or road blockage this notification is about.
+  final String refId;
   final DateTime createdAt;
   final bool unread;
 
-  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
+  factory AppNotification.fromJson(Map<String, dynamic> j) =>
+      AppNotification(
         id: j['id'] as String,
         kind: j['kind'] as String,
         title: j['title'] as String,
         body: (j['body'] ?? '') as String,
         createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
         unread: (j['unread'] ?? false) as bool,
+        refId: (j['refId'] ?? '') as String,
       );
 }
 
 class NotificationFeed {
   NotificationFeed({required this.unread, required this.items});
+
   final int unread;
   final List<AppNotification> items;
 }
