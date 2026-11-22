@@ -136,16 +136,118 @@
   const me = EH.USER && (() => { try { return JSON.parse(localStorage.getItem(EH.USER)); } catch { return null; } })();
   if (me && $('#acctName')) $('#acctName').textContent = `${me.firstName || ''} ${me.lastName || ''}`.trim();
   $('#chgPw').addEventListener('click', async () => {
+    
+    // SVG Icons matching login.html
+    const eyeSlashSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 9.9a3 3 0 104.2 4.2"/><path d="M10.7 5.1A10.4 10.4 0 0112 5c7 0 10 7 10 7a13.2 13.2 0 01-1.7 2.7"/><path d="M6.6 6.6A13.5 13.5 0 002 12s3 7 10 7a9.7 9.7 0 005.4-1.6"/><path d="M2 2l20 20"/></svg>`;
+    const eyeOpenSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+    // 1. Wait 50ms for the modal to render, then inject the SVG eye toggles and live indicators
+    setTimeout(() => {
+      const pwInputs = document.querySelectorAll('.modal input[type="password"], dialog input[type="password"]');
+      let newPwInput = null;
+      let confirmPwInput = null;
+      let confirmIndicator = null;
+
+      // Helper to check if Confirm Password matches New Password in real-time
+      const checkMatch = () => {
+        if (!newPwInput || !confirmPwInput || !confirmIndicator) return;
+        const v1 = newPwInput.value;
+        const v2 = confirmPwInput.value;
+
+        if (v2.length === 0) {
+          confirmIndicator.textContent = '';
+        } else if (v1 !== v2) {
+          confirmIndicator.style.color = '#D32F2F';
+          confirmIndicator.textContent = 'Passwords do not match.';
+        } else {
+          confirmIndicator.style.color = '#15803d';
+          confirmIndicator.textContent = '✔ Passwords match!';
+        }
+      };
+
+      pwInputs.forEach(input => {
+        // Add padding to input so text doesn't collide with the eye icon
+        input.style.paddingRight = '38px';
+
+        // Wrap the input so the SVG icon can float inside it
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position: relative; display: block; width: 100%;';
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+        
+        // Inject the SVG Eye Button (matching login.html)
+        const eyeBtn = document.createElement('button');
+        eyeBtn.type = 'button';
+        eyeBtn.setAttribute('aria-label', 'Show password');
+        eyeBtn.innerHTML = eyeSlashSvg; 
+        eyeBtn.style.cssText = 'position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; padding: 0;';
+        wrapper.appendChild(eyeBtn);
+        
+        // Toggle masked/unmasked password and swap the SVG
+        eyeBtn.addEventListener('click', () => {
+          const isHidden = input.type === 'password';
+          input.type = isHidden ? 'text' : 'password';
+          eyeBtn.innerHTML = isHidden ? eyeOpenSvg : eyeSlashSvg;
+          eyeBtn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+        });
+        
+        // Live Complexity Indicator under New Password
+        if (input.name === 'newPassword') {
+          newPwInput = input;
+          const indicator = document.createElement('div');
+          indicator.style.cssText = 'color: #D32F2F; font-size: 12px; margin-top: 6px; font-weight: 600; min-height: 16px;';
+          wrapper.parentNode.insertBefore(indicator, wrapper.nextSibling);
+          
+          input.addEventListener('input', () => {
+            const v = input.value;
+            indicator.style.color = '#D32F2F';
+            
+            if (v.length === 0) indicator.textContent = '';
+            else if (v.length < 10) indicator.textContent = 'Too short! Minimum 10 characters.';
+            else if (!/[A-Z]/.test(v)) indicator.textContent = 'Must include an uppercase letter.';
+            else if (!/[a-z]/.test(v)) indicator.textContent = 'Must include a lowercase letter.';
+            else if (!/[0-9]/.test(v)) indicator.textContent = 'Must include a number.';
+            else if (!/[!@#]/.test(v)) indicator.textContent = 'Must include a symbol (! @ #).';
+            else {
+              indicator.style.color = '#15803d';
+              indicator.textContent = '✔ Password meets all requirements!';
+            }
+
+            // Also re-check the confirm field in case they typed Confirm first
+            checkMatch();
+          });
+        }
+
+        // Live Match Indicator under Confirm New Password
+        if (input.name === 'confirm') {
+          confirmPwInput = input;
+          confirmIndicator = document.createElement('div');
+          confirmIndicator.style.cssText = 'color: #D32F2F; font-size: 12px; margin-top: 6px; font-weight: 600; min-height: 16px;';
+          wrapper.parentNode.insertBefore(confirmIndicator, wrapper.nextSibling);
+
+          input.addEventListener('input', checkMatch);
+        }
+      });
+    }, 50);
+
+    // 2. Open the Modal
     const out = await EH.modal({
-      title: 'Change password', sub: 'At least 10 characters, with upper and lower case letters, a number and a symbol (! @ #).', submit: 'Update password',
+      title: 'Change password', 
+      sub: '10 to 64 characters, with upper and lower case letters, a number and a symbol (! @ #).', 
+      submit: 'Update password',
       fields: [
-        { name: 'currentPassword', label: 'Current password', type: 'password', required: true, full: true },
-        { name: 'newPassword', label: 'New password', type: 'password', required: true, full: true },
-        { name: 'confirm', label: 'Confirm new password', type: 'password', required: true, full: true }],
+        { name: 'currentPassword', label: 'Current password', type: 'password', required: true, full: true, maxLength: 64, maxlength: 64 },
+        { name: 'newPassword', label: 'New password', type: 'password', required: true, full: true, maxLength: 64, maxlength: 64 },
+        { name: 'confirm', label: 'Confirm new password', type: 'password', required: true, full: true, maxLength: 64, maxlength: 64 }
+      ],
       onSubmit: async (v) => {
+        if (v.currentPassword.length > 64 || v.newPassword.length > 64) throw new Error('Password must not exceed 64 characters.');
+        if (v.newPassword.length < 10) throw new Error('New password must be at least 10 characters.');
         if (v.newPassword !== v.confirm) throw new Error('Passwords do not match.');
         return api('/me/password', { method: 'POST', body: { currentPassword: v.currentPassword, newPassword: v.newPassword } });
-      } });
+      } 
+    });
+    
     if (out) toast('Password updated', 'ok');
   });
   $('#discard').addEventListener('click', async () => { if (dirty() && !(await EH.confirmBox('Discard unsaved changes?', 'Your edits to Settings will be lost and the saved settings restored.', 'Discard'))) return; try { fill(await api('/admin/settings')); saved = JSON.stringify(collect()); refresh(); } catch (e) { fail(e); } });
