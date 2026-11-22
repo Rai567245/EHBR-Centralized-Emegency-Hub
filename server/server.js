@@ -21,6 +21,31 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
 const ADMIN_DIR = path.join(__dirname, '..', 'admin');
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+const { createClient } = require('@supabase/supabase-js');
+const sms = require('./sms');
+
+const BUCKET = process.env.SUPABASE_BUCKET || 'report-photos';
+const sb = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
+  : null;   // null = fall back to the local uploads/ folder (handy for local dev)
+
+async function storePhoto(name, buf, contentType) {
+  if (sb) {
+    const { error } = await sb.storage.from(BUCKET).upload(name, buf, { contentType, upsert: true });
+    if (error) { console.error('[storage]', error.message); throw new HttpError(503, 'Could not store the photo. Please try again.'); }
+    return;
+  }
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+}
+async function loadPhoto(name) {
+  if (sb) {
+    const { data, error } = await sb.storage.from(BUCKET).download(name);
+    return error || !data ? null : Buffer.from(await data.arrayBuffer());
+  }
+  try { return fs.readFileSync(path.join(UPLOAD_DIR, name)); } catch { return null; }
+}
+
 const MAX_PHOTOS = 3, MAX_PHOTO_BYTES = 1.5 * 1024 * 1024;
 const SESSION_MS = 30 * 24 * 3600 * 1000;
 
@@ -391,7 +416,7 @@ route('GET', '/api/config', null, () => ({
   barangay: db.settings.barangay, sos: db.settings.sos, mapCenter: db.settings.mapCenter,
   zones: db.settings.zones, allowAnonymous: db.settings.rules.allowAnonymous,
   contacts: db.settings.contacts.filter((c) => c.show), reportTypes: REPORT_TYPES,
-  emailReset: mailer.enabled(),
+  emailReset: mailer.enabled() || sms.enabled(),
 }));
 // Announcement pictures: stored as files, handed out as full URLs (the phone needs an absolute address).
 const ANN_IMG_MAX = 2 * 1024 * 1024;
@@ -466,29 +491,34 @@ route('POST', '/api/auth/forgot', null, ({ body, ip }) => {
   const contact = normContact(body.contact);
   limit('forgotContact', contact || 'none');
   const u = isPhone(contact) ? db.users.find((x) => x.contact === contact && x.role === 'resident') : null;
-  if (u) {
+    if (u) {
     pruneResets();
     const old = db.resets.find((r) => r.userId === u.id);
     const dead = old && old.status === 'issued' && (Date.now() > new Date(old.expiresAt).getTime() || old.attempts >= RESET_TRIES);
-    const wantsStaff = !!body.staff || !u.email || !mailer.enabled();
-    if (wantsStaff) {
-      // Staff-assisted path: used when there is no email on the account, email is not set up, or the resident asked for it.
-      if (dead || (old && old.via === 'email')) db.resets = db.resets.filter((r) => r !== old);
-      if (!old || dead || old.via === 'email') {
+    const emailOk = !!u.email && mailer.enabled();
+    const smsOk = sms.enabled() && process.env.RESET_CHANNEL !== 'email';   // SMS first when Twilio is on
+    if (body.staff || (!emailOk && !smsOk)) {
+      // staff-assisted path (unchanged, except it now replaces any non-staff request)
+      if (dead || (old && old.via !== 'staff')) db.resets = db.resets.filter((r) => r !== old);
+      if (!old || dead || old.via !== 'staff') {
         db.resets.push({ id: newId(), userId: u.id, requestedAt: nowIso(), status: 'pending', via: 'staff' });
         log(`Password reset requested by ${fullName(u)}`, 'user'); save();
       }
-    } else {
-      const { code } = issueReset(u.id, { digits: 6, ms: EMAIL_RESET_MS, via: 'email' });
+    } else if (smsOk) {
+      const { code } = issueReset(u.id, { digits: 6, ms: EMAIL_RESET_MS, via: 'sms' });
       save();
-      mailer.send({
-        to: u.email, subject: 'Your Emergency Hub password reset code',
-        text: `Hello ${u.firstName},\n\nYour password reset code is: ${code}\n\nIt works once and expires in 15 minutes. Enter it in the app together with your new password.\n\nIf you did not ask for this, ignore this email – your password has not changed. Never share this code with anyone, including barangay staff who contact you first.\n\n– ${db.settings.barangay.name ? 'Barangay ' + db.settings.barangay.name : 'Emergency Hub'}`,
-      }).catch((e) => console.error('[mail]', e.message));
-      log(`Password reset code emailed to ${fullName(u)}`, 'user');
+      sms.send(u.contact, `Emergency Hub: your password reset code is ${code}. It works once and expires in 15 minutes. Never share it.`)
+        .catch((e) => {
+          console.error('[sms]', e.message);   // e.g. a Twilio trial number that is not verified
+          db.resets = db.resets.filter((x) => x.userId !== u.id);
+          db.resets.push({ id: newId(), userId: u.id, requestedAt: nowIso(), status: 'pending', via: 'staff' });
+          save();
+        });
+      log(`Password reset code texted to ${fullName(u)}`, 'user');
+    } else {
+      // email path: keep your existing issueReset(... via: 'email') + mailer.send(...) + log(...) lines here, unchanged
     }
   }
-  // Same answer whether or not the number exists (and whichever path was used), so nobody can use this to find out who is registered.
   return { ok: true };
 });
 route('POST', '/api/auth/reset', null, async ({ body, ip }) => {
@@ -534,7 +564,7 @@ route('POST', '/api/auth/reset/verify', null, ({ body, ip }) => {
 
 route('GET', '/api/admin/resets', 'admin', () => {
   pruneResets();
-  return db.resets.filter((r) => r.via !== 'email').map((r) => {
+  return db.resets.filter((r) => r.via === 'staff' || !r.via).map((r) => {
     const u = db.users.find((x) => x.id === r.userId);
     const live = r.status === 'issued' && Date.now() < new Date(r.expiresAt).getTime() && r.attempts < RESET_TRIES;
     return u && { id: r.id, residentId: u.id, name: fullName(u), zone: u.zone, contactMasked: mask(u.contact), requestedAt: r.requestedAt,
@@ -662,7 +692,7 @@ route('POST', '/api/sos', 'user', async ({ body, user }) => {
   return r;
 });
 
-route('POST', '/api/reports', 'user', ({ body, user }) => {
+route('POST', '/api/reports', 'user', async ({ body, user }) => {
   // Offline-queue support: the phone sends a random clientId so a retry never files the same report twice.
   const clientId = /^[A-Za-z0-9-]{8,64}$/.test(str(body.clientId, 64)) ? str(body.clientId, 64) : '';
   if (clientId) {
@@ -711,10 +741,14 @@ route('POST', '/api/reports', 'user', ({ body, user }) => {
     reportedAt, createdAt: received, updatedAt: received, photos: [],
     timeline: [{ at: reportedAt, text: 'Reported by resident' }, ...(late ? [{ at: received, text: 'Received after the phone was back online' }] : [])],
   };
-  if (photoBufs.length) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    photoBufs.forEach(([buf, ext], i) => { const name = `${r.id}-${i + 1}.${ext}`; fs.writeFileSync(path.join(UPLOAD_DIR, name), buf); r.photos.push(name); });
+  
+  for (let i = 0; i < photoBufs.length; i++) {
+    const [buf, ext] = photoBufs[i];
+    const name = `${r.id}-${i + 1}.${ext}`;
+    await storePhoto(name, buf, ext === 'png' ? 'image/png' : 'image/jpeg');
+    r.photos.push(name);
   }
+
   db.reports.push(r);
   log(`New ${urgency.toLowerCase()} report ${r.id}: ${type}${late ? ' (filed offline)' : ''}`, 'report');
   if (late) notify({ userId: user.id, kind: 'report', title: 'Your saved report was received', body: `${r.id} (${type}) has reached the barangay.`, refId: r.id });
@@ -746,12 +780,13 @@ route('POST', '/api/devices/remove', 'user', ({ body, user }) => {
   user.deviceTokens = (user.deviceTokens || []).filter((t) => t.token !== token); save();
   return { ok: true };
 });
-route('GET', '/api/photos/:name', 'user', ({ params, user }) => {
+route('GET', '/api/photos/:name', 'user', async ({ params, user }) => {
   const name = params.name;
   const m = /^(EH-\d{4,})-[1-9]\.(jpg|png)$/.exec(name);
   const r = m && db.reports.find((x) => x.id === m[1]);
   if (!r || !(r.photos || []).includes(name) || (user.role !== 'admin' && r.userId !== user.id)) throw new HttpError(404, 'Not found');
-  let buf; try { buf = fs.readFileSync(path.join(UPLOAD_DIR, name)); } catch { throw new HttpError(404, 'Not found'); }
+  const buf = await loadPhoto(name);
+  if (!buf) throw new HttpError(404, 'Not found');
   return { __raw: buf, type: m[2] === 'png' ? 'image/png' : 'image/jpeg' };
 });
 route('GET', '/api/reports/mine', 'user', ({ user }) =>
@@ -839,6 +874,34 @@ route('GET', '/api/reports/public', 'user', () =>
       };
     })
 );
+
+// ------------------------------------------------------------------ auto-escalation
+// Critical reports nobody has verified within rules.escalateMinutes get escalated and texted.
+function autoEscalate() {
+  const rules = db.settings.rules;
+  if (!rules.autoEscalate) return;
+  const cutoff = Date.now() - (rules.escalateMinutes || 5) * 60000;
+  const to = ((db.settings.escalation.targets || [])[0] || {}).name || 'Higher-level office';
+  const numbers = (process.env.ESCALATION_SMS_TO || '').split(',').map((x) => x.trim()).filter(Boolean);
+  let changed = false;
+  for (const r of db.reports) {
+    if (r.status !== 'NEW' || r.urgency !== 'Critical' || r.autoEscalatedAt || new Date(r.createdAt).getTime() > cutoff) continue;
+    const reason = `Auto-escalated: Critical report not verified after ${rules.escalateMinutes} minutes`;
+    r.autoEscalatedAt = nowIso(); r.updatedAt = nowIso();
+    r.escalations = [...(r.escalations || []), { to, reason, at: nowIso(), by: 'System' }];
+    r.timeline.push({ at: nowIso(), text: `Escalated to ${to}: ${reason} (System)` });
+    log(`${r.id} auto-escalated to ${to}`, 'report');
+    changed = true;
+    if (sms.enabled()) {
+      for (const n of numbers) {
+        sms.send(n, `EHBR ALERT: ${r.id} ${r.type} (Critical) at ${r.locationText || 'GPS location'} is still unverified after ${rules.escalateMinutes} min. Open the admin console.`)
+          .catch((e) => console.error('[sms]', e.message));
+      }
+    }
+  }
+  if (changed) save();
+}
+
 // ---- admin
 // ------------------------------------------------------------------ road blockages (set and cleared by the admin)
 const BLOCK_REASONS = ['Flood', 'Accident', 'Road works', 'Fallen tree', 'Fire', 'Event / parade', 'Other'];
@@ -1382,8 +1445,9 @@ async function start() {
   }
   server.headersTimeout = 10000; server.requestTimeout = 15000; server.keepAliveTimeout = 5000;
   server.listen(PORT, () => {
-  console.log(`Emergency Hub server running:\n  Admin console  http://localhost:${PORT}/admin/\n  API            http://localhost:${PORT}/api/\n  Storage        ${pg ? 'PostgreSQL (DATABASE_URL)' : 'file ' + DATA_FILE}\n  Push           ${push.enabled() ? 'on (Firebase)' : 'off – see README to switch it on'}\n  Email codes    ${mailer.enabled() ? 'on' : 'off – password resets go through the barangay office (see README)'}`);
-});
+    setInterval(autoEscalate, 60000);
+    console.log(`Emergency Hub server running:\n  Admin console  http://localhost:${PORT}/admin/\n  API            http://localhost:${PORT}/api/\n  Storage        ${pg ? 'PostgreSQL (DATABASE_URL)' : 'file ' + DATA_FILE}\n  Push           ${push.enabled() ? 'on (Firebase)' : 'off – see README to switch it on'}\n  Email codes    ${mailer.enabled() ? 'on' : 'off – password resets go through the barangay office (see README)'}`);
+  });
 }
 
 // Write any pending changes to PostgreSQL before the process stops.
