@@ -516,8 +516,20 @@ route('POST', '/api/auth/forgot', null, ({ body, ip }) => {
         });
       log(`Password reset code texted to ${fullName(u)}`, 'user');
     } else {
-      // email path: keep your existing issueReset(... via: 'email') + mailer.send(...) + log(...) lines here, unchanged
-    }
+  const { code } = issueReset(u.id, { digits: 6, ms: EMAIL_RESET_MS, via: 'email' });
+  save();
+  mailer.send({
+    to: u.email,
+    subject: 'Emergency Hub password reset code',
+    text: `Your Emergency Hub password reset code is ${code}. It works once and expires in 15 minutes. Never share it.`,
+  }).catch((e) => {
+    console.error('[mail]', e.message);
+    db.resets = db.resets.filter((x) => x.userId !== u.id);
+    db.resets.push({ id: newId(), userId: u.id, requestedAt: nowIso(), status: 'pending', via: 'staff' });
+    save();
+  });
+  log(`Password reset code emailed to ${fullName(u)}`, 'user');
+}
   }
   return { ok: true };
 });
@@ -661,13 +673,20 @@ route('POST', '/api/me/profile', 'user', async ({ body, user }) => {
 
 // Phase 2 (SEC-01, SEC-39): Authenticated, deduplicated SOS endpoint
 route('POST', '/api/sos', 'user', async ({ body, user }) => {
-  limit('reportCrit', user.id); // Prevent spamming SOS using the critical report rate limit
-
   const clientId = /^[A-Za-z0-9-]{8,64}$/.test(str(body.clientId, 64)) ? str(body.clientId, 64) : '';
+
+  // A retry or a second tap never creates a second alert, and never counts against the limit:
+  // 1) the same clientId (the phone retried), 2) this resident already has an open SOS from the last 5 minutes.
   if (clientId) {
     const dup = db.reports.find((x) => x.userId === user.id && x.clientId === clientId && x.type === 'SOS Emergency');
     if (dup) return dup;
   }
+  const recentCutoff = Date.now() - 5 * 60000;
+  const recent = db.reports.find((x) => x.userId === user.id && x.type === 'SOS Emergency'
+    && !['RESOLVED', 'REJECTED'].includes(x.status) && new Date(x.createdAt).getTime() > recentCutoff);
+  if (recent) return recent;
+
+  limit('sos', user.id); // dedicated SOS limit (see ratelimit.js)
 
   const { lat, lng } = cleanLatLng(body.lat, body.lng);
   const received = nowIso();
@@ -685,8 +704,10 @@ route('POST', '/api/sos', 'user', async ({ body, user }) => {
   db.reports.push(r);
   log(`SOS Emergency triggered by ${fullName(user)} (ID: ${r.id})`, 'report');
   
-  // Instantly alert admins in the console
-  notify({ kind: 'alert', category: 'alert', title: `SOS: ${fullName(user)}`, body: `Immediate assistance required!`, refId: r.id });
+  // Admins are alerted through the activity feed (log above) and the report list.
+  // Do NOT broadcast this: a notify() with no userId goes to EVERY resident's phone and
+  // notification list, and it named the caller. Only the person who pressed SOS gets a confirmation.
+  notify({ userId: user.id, kind: 'report', title: 'Your SOS alert was received', body: `Barangay responders have been alerted (${r.id}). Stay where you are if it is safe.`, refId: r.id });
   
   await save();
   return r;
