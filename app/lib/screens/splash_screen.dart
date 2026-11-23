@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../widgets/auth_widgets.dart';
 import 'app_shell.dart';
 import 'login_screen.dart';
+import 'offline_screen.dart';
 import 'permissions_screen.dart';
 
 /// Loads the server configuration and any saved login, then routes onward.
@@ -26,6 +27,20 @@ class _SplashScreenState extends State<SplashScreen> {
     _boot();
   }
 
+  /// Replaces the splash with the offline page. When the server answers again,
+  /// the splash starts over (login or home, as usual).
+  void _showOffline() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (ctx) => OfflineScreen(
+          onReconnected: () => Navigator.of(ctx).pushReplacement(
+            MaterialPageRoute(builder: (_) => const SplashScreen()),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _boot() async {
     setState(() => _error = null);
     try {
@@ -38,6 +53,14 @@ class _SplashScreenState extends State<SplashScreen> {
       ]);
       if (!mounted) return;
       final signedIn = results[0] == true;
+
+      // Not logged in and the server can't be reached: show the offline page.
+      // (Logged-in residents still go straight into the app, which works offline.)
+      if (!signedIn && Session.offline) {
+        _showOffline();
+        return;
+      }
+
       final intro = !await permissionsIntroSeen();
       if (!mounted) return;
       Widget next() => signedIn ? const AppShell() : const LoginScreen();
@@ -53,7 +76,13 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       );
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (!mounted) return;
+      if (e.isOffline) {
+        // Never connected before, so there is no saved copy to fall back on.
+        _showOffline();
+      } else {
+        setState(() => _error = e.message);
+      }
     }
   }
 
