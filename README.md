@@ -1,4 +1,4 @@
-# Emergency Hub – Barangay Rizal
+# Exigency (EHBR - Emergency Hub Barangay Rizal)
 
 The system must start with a clean, empty state: absolutely no sample data, dummy records, placeholder entries, mock incidents, or hardcoded demonstration content anywhere in the application.
 
