@@ -160,16 +160,34 @@ class _AppShellState extends State<AppShell>
 
     _refreshUnread();
 
+    _toast(
+      Icons.check_circle_outline,
+      sent.length == 1
+          ? 'Your saved report ${sent.first.id} was sent to the barangay.'
+          : '${sent.length} saved reports were sent to the barangay.',
+    );
+  }
+
+  /// Floating dark banner (icon + text + optional action), lifted above the bottom nav bar.
+  void _toast(IconData icon, String text, {SnackBarAction? action}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            sent.length == 1
-                ? 'Your saved report ${sent.first.id} was sent to the barangay.'
-                : '${sent.length} saved reports were sent to the barangay.',
-          ),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           duration: const Duration(seconds: 6),
+          action: action,
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(text, maxLines: 3, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
         ),
       );
   }
@@ -198,22 +216,14 @@ class _AppShellState extends State<AppShell>
       }
     });
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            body.isEmpty ? title : '$title – $body',
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          duration: const Duration(seconds: 6),
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: _openNotifications,
-          ),
-        ),
-      );
+    _toast(
+      Icons.notifications_active_outlined,
+      body.isEmpty ? title : '$title – $body',
+      action: SnackBarAction(
+        label: 'View',
+        onPressed: _openNotifications,
+      ),
+    );
   }
 
   Future<void> _openNotifications() async {
