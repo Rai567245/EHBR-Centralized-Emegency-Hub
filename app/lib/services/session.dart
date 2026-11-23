@@ -14,6 +14,10 @@ import 'push.dart';
 class Session {
   static AppUser? user;
   static AppConfig config = AppConfig();
+
+  /// True when the last loadConfig() could not reach the server and used the saved copy.
+  static bool offline = false;
+
   static const _tokenKey = 'ehbr_token';
   static const _userKey = 'ehbr_user';
   static const _configKey = 'ehbr_config';
@@ -29,10 +33,12 @@ class Session {
       final raw = await Api.configJson();
       await prefs.setString(_configKey, jsonEncode(raw));
       config = AppConfig.fromJson(raw);
+      offline = false;
     } on ApiException catch (e) {
       final cached = prefs.getString(_configKey);
       if (e.isUnavailable && cached != null) {
         config = AppConfig.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+        offline = true;
       } else {
         rethrow;
       }
@@ -44,10 +50,10 @@ class Session {
   /// saved to fall back on.
   static Future<bool> restore() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Phase 3 (SEC-42): Read token from Android Keystore / iOS Keychain
     final t = await _storage.read(key: _tokenKey);
-    
+
     if (t == null) return false;
     Api.token = t;
     try {
@@ -84,7 +90,7 @@ class Session {
     Api.token = response['token'] as String;
     if (remember) {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Phase 3 (SEC-42): Write token securely instead of plain SharedPreferences
       await _storage.write(key: _tokenKey, value: Api.token!);
       await prefs.setString(_userKey, jsonEncode(u.toJson()));
@@ -102,7 +108,7 @@ class Session {
     user = null;
     Api.token = null;
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Phase 3 (SEC-42): Delete token securely
     await _storage.delete(key: _tokenKey);
     await prefs.remove(_userKey);
