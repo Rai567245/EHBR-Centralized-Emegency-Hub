@@ -13,6 +13,7 @@ const DEFAULTS = {
   registerIp:   [10, 3600],    // new accounts from one IP
   report:       [10, 600],     // reports per resident
   reportCrit:   [10, 600],     // extra allowance reserved for Critical reports
+  sos:          [3, 300],      // SOS alerts per resident (a retry within 5 min reuses the open SOS and never counts)
   forgotIp:     [10, 3600],    // "forgot password" requests per IP
   forgotContact:[3, 3600],     // ... and per phone number
   resetIp:      [20, 3600],    // code-entry attempts per IP
