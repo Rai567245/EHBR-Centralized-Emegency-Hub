@@ -1,4 +1,4 @@
-package ph.barangay.ehbr_app
+package ph.barangay.ehbr
 
 import io.flutter.embedding.android.FlutterActivity
 
