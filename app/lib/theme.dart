@@ -21,7 +21,18 @@ ThemeData buildTheme() {
     colorScheme: ColorScheme.fromSeed(seedColor: EhbrColors.brand),
     scaffoldBackgroundColor: Colors.white,
   );
-  return base.copyWith(textTheme: GoogleFonts.manropeTextTheme(base.textTheme));
+  return base.copyWith(
+    textTheme: GoogleFonts.manropeTextTheme(base.textTheme),
+    // Every snackbar in the app: floating, rounded, dark.
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: EhbrColors.ink,
+      contentTextStyle: manrope(13, FontWeight.w600, Colors.white),
+      actionTextColor: Colors.white,
+      insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+  );
 }
 
 TextStyle manrope(double size, FontWeight weight, Color color, {double? spacing}) =>
