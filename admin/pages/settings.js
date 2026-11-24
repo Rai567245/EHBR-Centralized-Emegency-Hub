@@ -5,18 +5,27 @@
   const ico = (n) => `<svg class="icon"><use href="#${n}"/></svg>`;
   let saved = null, contacts = [], chain = [], tpls = [], zones = [], zoneInfo = {}, tab = 'general';
 
+  // contact categories shown in the dropdown (value saved, label shown)
+  const CATS = [['local', 'Local'], ['police', 'Police'], ['fire', 'Fire'], ['medical', 'Medical / Ambulance'], ['barangay', 'Barangay'], ['disaster', 'Disaster (DRRMO)'], ['utility', 'Utility'], ['other', 'Other']];
+  const catOptions = (cur) => {
+    const list = CATS.some(([v]) => v === cur) || !cur ? CATS : [...CATS, [cur, cur]]; // keep an unknown saved value instead of silently changing it
+    return list.map(([v, l]) => `<option value="${esc(v)}"${v === (cur || 'local') ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  };
+  const GRIP = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/></svg>';
   const rowHtml = (c, i) => `<div class="crow" data-i="${i}">
+    ${contacts.length > 1 ? `<span class="drag-h" data-drag role="button" tabindex="0" title="Drag to reorder" aria-label="Reorder contact. Drag, or use the up and down arrow keys.">${GRIP}</span>` : ''}
     <input class="input crow__name-in" data-f="name" value="${esc(c.name)}" placeholder="Name (e.g. Police)" maxlength="60" aria-label="Name">
     <input class="input" data-f="number" value="${esc(c.number)}" placeholder="Number" maxlength="30" aria-label="Number" style="margin-left:0">
-    <select class="select-sm" data-f="category" aria-label="Category"><option value="local"${c.category === 'local' ? ' selected' : ''}>Local</option><option value="utility"${c.category === 'utility' ? ' selected' : ''}>Utility</option></select>
+    <select class="select-sm" data-f="category" aria-label="Category">${catOptions(c.category)}</select>
     <span class="crow__show" style="margin-left:auto">Show in app</span><label class="toggle"><input type="checkbox" data-f="show"${c.show !== false ? ' checked' : ''} aria-label="Show in app"><i></i></label>
     <button class="x-btn" data-rm type="button" aria-label="Remove contact">${ico('i-trash')}</button></div>`;
   const drawContacts = () => {
     $('#contactRows').innerHTML = contacts.length ? contacts.map(rowHtml).join('') : '<div class="empty empty--sm">No contacts yet. Add the police, fire, medical and barangay numbers residents should see.</div>';
+    EH.enhanceSelects($('#contactRows'), 'select.select-sm'); // same custom dropdown as the other pages
   };
-  const readContacts = () => $$('#contactRows .crow').map((r, i) => ({
-    id: contacts[i]?.id, name: $('[data-f=name]', r).value.trim(), number: $('[data-f=number]', r).value.trim(),
-    category: $('[data-f=category]', r).value, show: $('[data-f=show]', r).checked, description: contacts[i]?.description || '' }));
+  const readContacts = () => $$('#contactRows .crow').map((r) => ({
+    id: contacts[+r.dataset.i]?.id, name: $('[data-f=name]', r).value.trim(), number: $('[data-f=number]', r).value.trim(),
+    category: $('[data-f=category]', r).value, show: $('[data-f=show]', r).checked, description: contacts[+r.dataset.i]?.description || '' }));
 
   function fill(s) {
     $('#bName').value = s.barangay.name; $('#bCity').value = s.barangay.city; $('#bRegion').value = s.barangay.region; $('#bHot').value = s.barangay.hotline;
@@ -127,6 +136,42 @@
   $('#contactRows').addEventListener('click', (e) => {
     const b = e.target.closest('[data-rm]'); if (!b) return;
     contacts = readContacts(); contacts.splice(+b.closest('.crow').dataset.i, 1); drawContacts(); refresh();
+  });
+  // ---- reorder contacts: drag the handle (mouse or touch), or focus it and press the up / down arrow keys
+  const contactBox = $('#contactRows');
+  const commitOrder = () => { contacts = readContacts(); drawContacts(); refresh(); };
+  contactBox.addEventListener('pointerdown', (e) => {
+    const h = e.target.closest('[data-drag]');
+    if (!h || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault();
+    const row = h.closest('.crow'), startY = e.clientY, startTop = row.getBoundingClientRect().top;
+    let moved = false;
+    try { h.setPointerCapture(e.pointerId); } catch (_) {}
+    row.classList.add('is-dragging'); document.body.style.userSelect = 'none';
+    // The dragged row itself never moves in the DOM (so the pointer stays captured); its neighbours step around it.
+    const move = (ev) => {
+      row.style.transform = '';
+      const want = startTop + (ev.clientY - startY), mid = want + row.offsetHeight / 2;
+      let prev = row.previousElementSibling, next = row.nextElementSibling;
+      while (prev && mid < prev.getBoundingClientRect().top + prev.offsetHeight / 2) { row.after(prev); moved = true; prev = row.previousElementSibling; }
+      while (next && mid > next.getBoundingClientRect().top + next.offsetHeight / 2) { row.before(next); moved = true; next = row.nextElementSibling; }
+      row.style.transform = `translateY(${want - row.getBoundingClientRect().top}px)`;
+    };
+    const end = () => {
+      h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', end); h.removeEventListener('pointercancel', end);
+      row.style.transform = ''; row.classList.remove('is-dragging'); document.body.style.userSelect = '';
+      if (moved) commitOrder();
+    };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', end); h.addEventListener('pointercancel', end);
+  });
+  contactBox.addEventListener('keydown', (e) => {
+    const h = e.target.closest('[data-drag]');
+    if (!h || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    const rows = $$('#contactRows .crow'), i = rows.indexOf(h.closest('.crow')), j = i + (e.key === 'ArrowUp' ? -1 : 1);
+    if (i < 0 || j < 0 || j >= rows.length) return;
+    contacts = readContacts(); [contacts[i], contacts[j]] = [contacts[j], contacts[i]]; drawContacts(); refresh();
+    const hs = $$('#contactRows [data-drag]'); if (hs[j]) hs[j].focus();
   });
   $('#save').addEventListener('click', async () => {
     if (!validate()) return;
