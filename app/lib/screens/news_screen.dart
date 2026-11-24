@@ -252,13 +252,12 @@ class _NewsCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          // One fixed card size, so every announcement in the list looks the same
-          // whatever the length of its title or message.
-          child: SizedBox(
-            height: 150,
-            child: Padding(
+          // The card hugs its content, so the space under the text matches the
+          // space above it (14 px all round).
+          child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -269,8 +268,8 @@ class _NewsCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Expanded(
-                    child: Column(
+                  Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(a.title,
@@ -286,11 +285,9 @@ class _NewsCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
                 ],
               ),
             ),
-          ),
         ),
       ),
     );
