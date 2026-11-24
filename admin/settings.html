@@ -65,7 +65,7 @@
     </header>
     <div class="st__tabs"><nav class="tabs" id="tabs" aria-label="Settings sections"><a class="tab is-on" href="#general" data-tab="general">General</a><a class="tab" href="#alerts" data-tab="alerts">Alerts &amp; Escalation</a><a class="tab" href="#privacy" data-tab="privacy">Data &amp; Privacy</a><a class="tab" href="#contacts" data-tab="contacts">Emergency Contacts</a><a class="tab" href="#zones" data-tab="zones">Zones &amp; Puroks</a><a class="tab" href="#account" data-tab="account">Account &amp; Security</a></nav></div>
     <form class="st" id="stForm" style="display:block" novalidate>
-      <div class="st__col" style="max-width:980px">
+      <div class="st__col" style="max-width:1760px;width:100%;margin:0 auto">
         <div class="errbar" id="errBar" hidden></div>
         <section class="sec" data-pane="general"><div><h2 class="sec__title">Barangay profile</h2><p class="sec__sub">Shown in the resident app header and on the Contacts screen</p></div>
           <div class="fields">
@@ -83,7 +83,7 @@
           <div class="crow crow--sos"><span class="crow__name" style="width:160px">SOS number</span><input class="input" id="sosNum" maxlength="20" style="margin-left:0;width:200px">
             <span style="margin-left:auto" class="crow__show">Require 3-second press-and-hold</span><label class="toggle"><input type="checkbox" id="sosHold" aria-label="Hold to confirm"><i></i></label></div></section>
 
-        <section class="sec" data-pane="contacts"><div><h2 class="sec__title">Emergency contacts</h2><p class="sec__sub">Shown in the resident app’s Contacts tab and on the “report saved offline” screen, so keep them accurate</p></div>
+        <section class="sec" data-pane="contacts"><div><h2 class="sec__title">Emergency contacts</h2><p class="sec__sub">Shown in the resident app’s Contacts tab and on the “report saved offline” screen, so keep them accurate. Drag the handle on the left of a row to change the order.</p></div>
           <div id="contactRows" style="display:flex;flex-direction:column;gap:10px"></div>
           <button class="btn btn--fit add-row" id="addContact" type="button"><svg class="icon "><use href="#i-plus"/></svg>Add contact</button></section>
 
