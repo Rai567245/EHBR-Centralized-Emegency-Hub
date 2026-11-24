@@ -347,6 +347,7 @@ class _AppShellState extends State<AppShell>
                 onOpenNews: _openNews,
                 onOpenReports: _openReport,
                 onOpenMap: () => _select(1),
+                onOpenContacts: () => _select(2),
               ),
         MapScreen(reloadToken: _tokens[1]),
         ContactsScreen(reloadToken: _tokens[2]),
