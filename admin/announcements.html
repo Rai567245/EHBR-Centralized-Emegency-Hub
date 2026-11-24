@@ -67,7 +67,7 @@
       <section class="card anx-form" aria-labelledby="anFormTitle">
         <div>
           <h2 class="card__title" id="anFormTitle">New announcement</h2>
-          <p class="sec__sub">Residents see it in the app’s News tab right away.</p>
+          <p class="sec__sub" id="anFormSub">Residents see it in the app’s News tab right away.</p>
         </div>
         <form class="anx-fields" id="anForm" novalidate>
           <div class="anx-field" role="radiogroup" aria-labelledby="anCatLbl">
@@ -118,7 +118,8 @@
           </div>
 
           <p class="form-error" id="anErr" role="alert" hidden></p>
-          <button class="btn btn--primary anx-send" type="submit" id="anSend"><svg class="icon"><use href="#i-mega"/></svg>Send to residents</button>
+          <button class="btn btn--primary anx-send" type="submit" id="anSend"><svg class="icon"><use href="#i-mega"/></svg><span id="anSendTxt">Send to residents</span></button>
+          <button class="btn anx-cancel" type="button" id="anCancel" hidden>Cancel editing</button>
         </form>
       </section>
 
