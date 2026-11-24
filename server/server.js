@@ -166,6 +166,9 @@ function dropToken(token) {
   for (const u of db.users) if (u.deviceTokens) u.deviceTokens = u.deviceTokens.filter((t) => t.token !== token);
   save();
 }
+// allowed emergency-contact categories (keep in sync with CATS in pages/settings.js)
+const CONTACT_CATEGORIES = ['local', 'police', 'fire', 'medical', 'barangay', 'disaster', 'utility', 'other'];
+
 function notify({ userId = null, kind, title, body, refId = '', category = '', sendPush = true }) {
   const n = { id: newId(), userId, kind, category, title: str(title, 100), body: str(body, 300), refId, createdAt: nowIso() };
   db.notifications.push(n);
@@ -379,7 +382,7 @@ function cleanSettings(b) {
     s.contacts = b.contacts.map((c) => {
       const name = str(c.name, 60), number = str(c.number, 30);
       if (!name || !number) throw bad('Every contact needs a name and a number');
-      return { id: str(c.id, 40) || newId(), name, number, category: c.category === 'utility' ? 'utility' : 'local', description: str(c.description, 80), show: c.show !== false };
+      return { id: str(c.id, 40) || newId(), name, number, category: CONTACT_CATEGORIES.includes(c.category) ? c.category : 'local', description: str(c.description, 80), show: c.show !== false };
     });
   }
   if (b.zoneInfo && typeof b.zoneInfo === 'object') {
