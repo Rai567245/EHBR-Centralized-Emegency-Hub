@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
 import '../phone.dart';
@@ -59,6 +60,7 @@ class HomeScreen extends StatelessWidget {
     required this.onOpenNews,
     required this.onOpenReports,
     required this.onOpenMap,
+    this.onOpenContacts,
   });
 
   final int reloadToken;
@@ -74,6 +76,9 @@ class HomeScreen extends StatelessWidget {
 
   /// Opens the Map tab.
   final VoidCallback onOpenMap;
+
+  /// Opens the Contacts tab. When null, the "See all" link next to Emergency Contacts is hidden.
+  final VoidCallback? onOpenContacts;
 
   Future<_HomeData> _load() async {
     try {
@@ -122,7 +127,7 @@ class HomeScreen extends StatelessWidget {
               orElse: () => null,
             );
 
-        final contacts = cfg.contacts.take(4).toList();
+        final contacts = cfg.contacts;
 
         return _ScrollEdge(
           child: RefreshIndicator(
@@ -223,20 +228,12 @@ class HomeScreen extends StatelessWidget {
 
               if (contacts.isNotEmpty) ...[
                 const SizedBox(height: 24),
-                const _SectionTitle('Emergency Contacts'),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    for (var i = 0; i < contacts.length; i++) ...[
-                      Expanded(
-                        child: _ContactTile(
-                          label: contacts[i].name,
-                          onTap: () => callNumber(context, contacts[i].number),
-                        ),
-                      ),
-                      if (i != contacts.length - 1) const SizedBox(width: 10),
-                    ],
+                _HomeContacts(
+                  contacts: [
+                    for (final c in contacts) _HomeContact(c.name, c.number, '${c.category}'),
                   ],
+                  onCall: (c) => callNumber(context, c.number),
+                  onSeeAll: onOpenContacts,
                 ),
               ],
 
@@ -609,13 +606,135 @@ class _ActionCard extends StatelessWidget {
   }
 }
 
-class _ContactTile extends StatelessWidget {
-  const _ContactTile({
-    required this.label,
-    required this.onTap,
-  });
+class _HomeContact {
+  const _HomeContact(this.name, this.number, this.category);
+  final String name, number, category;
+}
 
-  final String label;
+/// Order the four Home slots are filled in after favorites. Keep in sync with the admin console's categories.
+const List<String> _homeCatOrder = ['police', 'fire', 'medical', 'barangay', 'disaster', 'local', 'utility', 'other'];
+
+const Map<String, IconData> _homeCatIcons = {
+  'police': Icons.local_police_outlined,
+  'fire': Icons.local_fire_department_outlined,
+  'medical': Icons.medical_services_outlined,
+  'barangay': Icons.account_balance_outlined,
+  'disaster': Icons.warning_amber_rounded,
+  'local': Icons.local_phone_outlined,
+  'utility': Icons.build_circle_outlined,
+  'other': Icons.phone_in_talk_outlined,
+};
+
+/// Emergency Contacts on Home: up to four wide tiles in a 2 x 2 grid.
+/// Favorites (starred on the Contacts tab) come first, then the rest by category.
+class _HomeContacts extends StatefulWidget {
+  const _HomeContacts({required this.contacts, required this.onCall, this.onSeeAll});
+
+  final List<_HomeContact> contacts;
+  final void Function(_HomeContact) onCall;
+  final VoidCallback? onSeeAll;
+
+  @override
+  State<_HomeContacts> createState() => _HomeContactsState();
+}
+
+class _HomeContactsState extends State<_HomeContacts> {
+  // Same key the Contacts tab saves its stars under.
+  static const _favKey = 'favorite_contacts';
+  Set<String> _favs = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavs();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeContacts oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadFavs();
+  }
+
+  Future<void> _loadFavs() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final f = (p.getStringList(_favKey) ?? <String>[]).toSet();
+      if (mounted && (f.length != _favs.length || !f.containsAll(_favs))) setState(() => _favs = f);
+    } catch (_) {}
+  }
+
+  List<_HomeContact> _pick() {
+    final all = widget.contacts;
+    int rank(_HomeContact c) {
+      final i = _homeCatOrder.indexOf(c.category);
+      return i < 0 ? _homeCatOrder.length - 1 : i;
+    }
+
+    final favs = all.where((c) => _favs.contains(c.number)).toList();
+    final rest = all.where((c) => !_favs.contains(c.number)).toList()
+      ..sort((a, b) {
+        final r = rank(a).compareTo(rank(b));
+        return r != 0 ? r : all.indexOf(a).compareTo(all.indexOf(b));
+      });
+    return [...favs, ...rest].take(4).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final picks = _pick();
+    final rows = <Widget>[];
+    for (var i = 0; i < picks.length; i += 2) {
+      final a = picks[i];
+      final b = i + 1 < picks.length ? picks[i + 1] : null;
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+          // IntrinsicHeight keeps the two tiles in a row the same height.
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _HomeContactTile(contact: a, onTap: () => widget.onCall(a))),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: b == null ? const SizedBox.shrink() : _HomeContactTile(contact: b, onTap: () => widget.onCall(b)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const _SectionTitle('Emergency Contacts'),
+            const Spacer(),
+            if (widget.onSeeAll != null)
+              TextButton(
+                onPressed: widget.onSeeAll,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text('See all', style: manrope(12, FontWeight.w700, EhbrColors.brand)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...rows,
+      ],
+    );
+  }
+}
+
+class _HomeContactTile extends StatelessWidget {
+  const _HomeContactTile({required this.contact, required this.onTap});
+
+  final _HomeContact contact;
   final VoidCallback onTap;
 
   @override
@@ -626,40 +745,43 @@ class _ContactTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(
-          height: 88,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
+        child: ConstrainedBox(
+          // Minimum height, so every tile matches even when a name is short.
+          constraints: const BoxConstraints(minHeight: 76),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: Icon(_homeCatIcons[contact.category] ?? Icons.phone_in_talk_outlined, color: _homeIcon, size: 18),
                 ),
-                child: const Icon(
-                  Icons.phone_in_talk_outlined,
-                  color: _homeIcon,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: manrope(
-                    11,
-                    FontWeight.w600,
-                    EhbrColors.ink,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contact.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: manrope(12, FontWeight.w700, EhbrColors.ink),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        contact.number,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: manrope(11, FontWeight.w600, EhbrColors.muted),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
