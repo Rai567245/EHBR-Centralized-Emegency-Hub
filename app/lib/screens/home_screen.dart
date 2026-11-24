@@ -304,7 +304,7 @@ class HomeScreen extends StatelessWidget {
                             style: manrope(
                               12,
                               FontWeight.w700,
-                              EhbrColors.ink,
+                              EhbrColors.brand,
                             ),
                           ),
                         ),
@@ -558,9 +558,9 @@ class _ActionCard extends StatelessWidget {
           onTap();
         },
         child: SizedBox(
-          height: 176,
+          height: 152,
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -917,13 +917,12 @@ class _AnnouncementTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        // One fixed card size, so every announcement looks the same
-        // whatever the length of its title or message.
-        child: SizedBox(
-          height: 124,
-          child: Padding(
+        // The card hugs its content, so the space under the text matches the
+        // space above it (14 px all round).
+        child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -954,8 +953,8 @@ class _AnnouncementTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Expanded(
-                  child: Column(
+                Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -972,7 +971,7 @@ class _AnnouncementTile extends StatelessWidget {
                       Flexible(
                         child: Text(
                           a.body,
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: manrope(
                             12,
@@ -983,11 +982,9 @@ class _AnnouncementTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                ),
               ],
             ),
           ),
-        ),
       ),
     );
   }
