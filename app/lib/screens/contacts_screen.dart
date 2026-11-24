@@ -13,11 +13,34 @@ const Color _cSurface = Color(0xFFF3F4F8);
 // Every icon on this screen uses this one neutral colour.
 const Color _cIcon = EhbrColors.brand;
 
+// Content height every contact card is at least (card = this + 24 padding). Fits name + number + 2-line description.
+const double _cardMinHeight = 72;
+
 class _Item {
   const _Item(this.name, this.number, this.subtitle, this.icon, this.group);
   final String name, number, subtitle, group;
   final IconData icon;
 }
+
+class _Cat {
+  const _Cat(this.group, this.subtitle, this.icon);
+  final String group, subtitle;
+  final IconData icon;
+}
+
+/// Categories an admin can pick in Settings → Emergency contacts, in the order they are listed here.
+/// Keep the keys in sync with CATS in the admin console (pages/settings.js) and CONTACT_CATEGORIES in server.js.
+/// A contact with a category not listed here is shown under 'other' instead of disappearing.
+const Map<String, _Cat> _cats = {
+  'local': _Cat('Local Emergency Contacts', 'Local emergency contact', Icons.local_phone_outlined),
+  'police': _Cat('Police Contacts', 'Police', Icons.local_police_outlined),
+  'fire': _Cat('Fire Contacts', 'Fire protection', Icons.local_fire_department_outlined),
+  'medical': _Cat('Medical & Ambulance Contacts', 'Medical / ambulance', Icons.medical_services_outlined),
+  'barangay': _Cat('Barangay Contacts', 'Barangay office', Icons.account_balance_outlined),
+  'disaster': _Cat('Disaster Response (DRRMO)', 'Disaster response', Icons.warning_amber_rounded),
+  'utility': _Cat('Utility & Disaster Desk Contacts', 'Utility / disaster desk', Icons.build_circle_outlined),
+  'other': _Cat('Other Contacts', 'Emergency contact', Icons.phone_outlined),
+};
 
 /// Numbers come from the admin console (Settings → Emergency contacts).
 /// Search and Favorites (stars) are kept on the phone.
@@ -61,10 +84,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
       _Item('National Emergency Hotline', cfg.sosNumber, 'Same number the SOS button dials', Icons.notifications_none_rounded, 'National Emergency Contact'),
       if (cfg.hotline.isNotEmpty)
         _Item('Barangay hotline', cfg.hotline, cfg.locationLine.isEmpty ? 'Barangay office' : cfg.locationLine, Icons.account_balance_outlined, 'Local Emergency Contacts'),
-      for (final c in cfg.contacts.where((c) => c.category == 'local'))
-        _Item(c.name, c.number, 'Local emergency contact', Icons.local_phone_outlined, 'Local Emergency Contacts'),
-      for (final c in cfg.contacts.where((c) => c.category == 'utility'))
-        _Item(c.name, c.number, 'Utility / disaster desk', Icons.build_circle_outlined, 'Utility & Disaster Desk Contacts'),
+      for (final e in _cats.entries)
+        for (final c in cfg.contacts.where((c) => (_cats.containsKey(c.category) ? c.category : 'other') == e.key))
+          _Item(c.name, c.number, e.value.subtitle, e.value.icon, e.value.group),
     ];
   }
 
@@ -199,7 +221,10 @@ class _ContactRow extends StatelessWidget {
           onTap: onOpen,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
-            child: Row(
+            // Every card has the same minimum height, so one- and two-line descriptions line up.
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: _cardMinHeight),
+              child: Row(
               children: [
                 Container(
                   width: 40,
@@ -218,7 +243,7 @@ class _ContactRow extends StatelessWidget {
                     children: [
                       Text(
                         item.name,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: manrope(13, FontWeight.w700, EhbrColors.ink),
                       ),
@@ -262,6 +287,7 @@ class _ContactRow extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         ),
