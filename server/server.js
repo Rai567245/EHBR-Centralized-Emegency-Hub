@@ -46,6 +46,14 @@ async function loadPhoto(name) {
   try { return fs.readFileSync(path.join(UPLOAD_DIR, name)); } catch { return null; }
 }
 
+async function deletePhoto(name) {
+  if (!name) return;
+  try {
+    if (sb) await sb.storage.from(BUCKET).remove([name]);
+    else fs.unlinkSync(path.join(UPLOAD_DIR, name));
+  } catch { /* already gone */ }
+}
+
 const MAX_PHOTOS = 3, MAX_PHOTO_BYTES = 1.5 * 1024 * 1024;
 const SESSION_MS = 30 * 24 * 3600 * 1000;
 
@@ -434,11 +442,12 @@ route('GET', '/api/announcements', null, ({ req }) => {
   const base = publicBase(req);
   return db.announcements.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => withImageUrl(a, base));
 });
-route('GET', '/api/announcement-images/:name', null, ({ params }) => {
+route('GET', '/api/announcement-images/:name', null, async ({ params }) => {
   const m = /^ann-[0-9a-f-]{36}\.(jpg|png|webp)$/.exec(params.name);
   const a = m && db.announcements.find((x) => x.image === params.name);
   if (!a) throw new HttpError(404, 'Not found');
-  let buf; try { buf = fs.readFileSync(path.join(UPLOAD_DIR, params.name)); } catch { throw new HttpError(404, 'Not found'); }
+  const buf = await loadPhoto(params.name); // Supabase Storage (permanent), or uploads/ when running locally
+  if (!buf) throw new HttpError(404, 'Not found');
   return { __raw: buf, type: ANN_IMG_TYPES[m[1]] };
 });
 route('GET', '/api/centers', null, () => db.centers);
@@ -856,11 +865,10 @@ route('POST', '/api/reports/:id/reply', 'user', async ({ params, body, user }) =
   const at = !Number.isNaN(t) && t <= Date.now() + 5 * 60000 && t >= Date.now() - 7 * 864e5 ? new Date(t).toISOString() : now;
 
   if (photoBufs.length) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
     r.photos = r.photos || [];
     for (const [buf, ext] of photoBufs) {
       const name = `${r.id}-${r.photos.length + 1}.${ext}`;
-      fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+      await storePhoto(name, buf, ext === 'png' ? 'image/png' : 'image/jpeg');
       r.photos.push(name);
     }
   }
@@ -1291,38 +1299,81 @@ route('DELETE', '/api/admin/residents/:id', 'admin', ({ params, user }) => {
   return { ok: true };
 });
 
-route('POST', '/api/admin/announcements', 'admin', ({ req, body, user }) => {
-  limit('announcement', user.id);
+// Validates the optional announcement picture (a data URL from the admin page). Only real JPEG / PNG / WebP files pass.
+function parseAnnImage(data) {
+  const buf = Buffer.from(String(data).replace(/^data:[^,]*,/, ''), 'base64');
+  if (buf.length < 100 || buf.length > ANN_IMG_MAX) throw bad('The image must be under 2 MB');
+  const jpg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+  const png = buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const webp = buf.slice(0, 4).toString('latin1') === 'RIFF' && buf.slice(8, 12).toString('latin1') === 'WEBP';
+  if (!jpg && !png && !webp) throw bad('The image must be a JPEG, PNG or WebP file');
+  const ext = jpg ? 'jpg' : png ? 'png' : 'webp';
+  return { buf, ext, type: ANN_IMG_TYPES[ext] };
+}
+function cleanAnnouncement(body) {
   const category = ['alert', 'advisory', 'event'].includes(body.category) ? body.category : null;
   const title = str(body.title, 100), text = str(body.body, 2000);
   if (!category) throw bad('Choose a category');
   if (!title || !text) throw bad('Title and message are required');
+  return { category, title, text };
+}
+
+route('POST', '/api/admin/announcements', 'admin', async ({ req, body, user }) => {
+  limit('announcement', user.id);
+  const { category, title, text } = cleanAnnouncement(body);
   const a = { id: newId(), category, title, body: text, createdAt: nowIso(), author: fullName(user) };
-  // Optional picture (the admin page shrinks it to a JPEG first). Only real JPEG / PNG / WebP files are kept.
+  // Optional picture: stored in Supabase Storage (like report photos) so it survives Render restarts.
   if (typeof body.image === 'string' && body.image) {
-    const buf = Buffer.from(body.image.replace(/^data:[^,]*,/, ''), 'base64');
-    if (buf.length < 100 || buf.length > ANN_IMG_MAX) throw bad('The image must be under 2 MB');
-    const jpg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-    const png = buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-    const webp = buf.slice(0, 4).toString('latin1') === 'RIFF' && buf.slice(8, 12).toString('latin1') === 'WEBP';
-    if (!jpg && !png && !webp) throw bad('The image must be a JPEG, PNG or WebP file');
-    const name = `ann-${a.id}.${jpg ? 'jpg' : png ? 'png' : 'webp'}`;
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+    const img = parseAnnImage(body.image);
+    const name = `ann-${a.id}.${img.ext}`;
+    await storePhoto(name, img.buf, img.type);
     a.image = name;
   }
   db.announcements.push(a);
   log(`Announcement sent: ${title}`, 'announcement');
   notify({ kind: 'announcement', category, title, body: text, refId: a.id, sendPush: body.push !== false });
-  save();
+  await save();
   return withImageUrl(a, publicBase(req));
 }, { photoBody: true });
-route('DELETE', '/api/admin/announcements/:id', 'admin', ({ params }) => {
+
+// Edit an announcement in place (fix a mistake without sending a new one).
+route('PUT', '/api/admin/announcements/:id', 'admin', async ({ req, params, body, user }) => {
+  limit('announcement', user.id);
+  const a = db.announcements.find((x) => x.id === params.id);
+  if (!a) throw new HttpError(404, 'Not found');
+  const { category, title, text } = cleanAnnouncement(body);
+
+  const oldImage = a.image;
+  let replaced = false;
+  if (typeof body.image === 'string' && body.image) {
+    const img = parseAnnImage(body.image);
+    const name = `ann-${newId()}.${img.ext}`; // a fresh name, so phones never show a stale cached picture
+    await storePhoto(name, img.buf, img.type);
+    a.image = name; replaced = true;
+  } else if (body.removeImage === true && a.image) {
+    delete a.image; replaced = true;
+  }
+  a.category = category; a.title = title; a.body = text;
+  a.updatedAt = nowIso(); a.editedBy = fullName(user);
+
+  // Keep the residents' bell list in step with the corrected text.
+  for (const n of db.notifications) {
+    if (n.kind === 'announcement' && n.refId === a.id) { n.category = category; n.title = str(title, 100); n.body = str(text, 300); }
+  }
+  log(`Announcement edited: ${title}`, 'announcement');
+  if (body.push === true) notify({ kind: 'announcement', category, title: `Updated: ${title}`, body: text, refId: a.id, sendPush: true });
+  await save();
+  if (replaced && oldImage) await deletePhoto(oldImage); // only after the change is safely saved
+  return withImageUrl(a, publicBase(req));
+}, { photoBody: true });
+
+route('DELETE', '/api/admin/announcements/:id', 'admin', async ({ params }) => {
   const i = db.announcements.findIndex((a) => a.id === params.id);
   if (i < 0) throw new HttpError(404, 'Not found');
   const [gone] = db.announcements.splice(i, 1);
-  if (gone.image) { try { fs.unlinkSync(path.join(UPLOAD_DIR, gone.image)); } catch { /* already gone */ } }
-  save(); return { ok: true };
+  await save();
+  await deletePhoto(gone.image);
+  return { ok: true };
 });
 
 function cleanCenter(b, existing = {}) {
