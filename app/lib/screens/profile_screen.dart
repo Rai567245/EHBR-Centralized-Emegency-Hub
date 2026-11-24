@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -73,16 +74,19 @@ class ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<ProfileTab> {
-  bool _showReports = false;
   bool _offline = false;
-  String? _pendingReportId;
+  bool _reportsOpen = false;
+  int _localReload = 0;
+
+  /// Lets a tapped notification reach the My Reports page while it is already open.
+  final ValueNotifier<(int, String?)> _deepLink =
+      ValueNotifier<(int, String?)>((0, null));
 
   @override
   void initState() {
     super.initState();
     if (widget.openReportId != null) {
-      _showReports = true;
-      _pendingReportId = widget.openReportId;
+      _openReportsAfterFrame(widget.openReportId);
     }
   }
 
@@ -90,11 +94,38 @@ class _ProfileTabState extends State<ProfileTab> {
   void didUpdateWidget(covariant ProfileTab old) {
     super.didUpdateWidget(old);
     if (widget.openReportsRequest != old.openReportsRequest) {
-      setState(() {
-        _showReports = true;
-        _pendingReportId = widget.openReportId;
-      });
+      _openReportsAfterFrame(widget.openReportId);
     }
+  }
+
+  @override
+  void dispose() {
+    _deepLink.dispose();
+    super.dispose();
+  }
+
+  void _openReportsAfterFrame(String? reportId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openReports(reportId: reportId);
+    });
+  }
+
+  /// Opens My Reports as a normal page (same slide animation and swipe-back
+  /// as the other pages). If it is already open, just tells it which report to show.
+  Future<void> _openReports({String? reportId}) async {
+    if (_reportsOpen) {
+      _deepLink.value = (_deepLink.value.$1 + 1, reportId);
+      return;
+    }
+    _reportsOpen = true;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _MyReports(openReportId: reportId, deepLink: _deepLink),
+      ),
+    );
+    _reportsOpen = false;
+    // Counts on the profile card may have changed (e.g. after a reply).
+    if (mounted) setState(() => _localReload++);
   }
 
   Future<List<Report>> _loadReports() async {
@@ -139,32 +170,23 @@ class _ProfileTabState extends State<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_showReports) {
-      return _MyReports(
-        onBack: () => setState(() {
-          _showReports = false;
-          _pendingReportId = null;
-        }),
-        openReportId: _pendingReportId,
-        openToken: widget.openReportsRequest,
-        onOpened: () => _pendingReportId = null,
-      );
-    }
     final u = Session.user;
     return AsyncBody<List<Report>>(
       load: _loadReports,
-      reloadToken: widget.reloadToken,
+      reloadToken: widget.reloadToken + _localReload,
       builder: (context, reports, refresh) {
         final open = reports
             .where((r) => ['NEW', 'VERIFIED', 'DISPATCHED'].contains(r.status))
             .length;
         final resolved = reports.where((r) => r.status == 'RESOLVED').length;
+
+        // (icon, label, isDanger, onTap) - a "danger" item is shown in red.
         final menu = <(IconData, String, bool, VoidCallback)>[
           (
             Icons.description_outlined,
             'My Reports',
             false,
-            () => setState(() => _showReports = true)
+            () => _openReports()
           ),
           (Icons.badge_outlined, 'Account details', false, _account),
           (
@@ -267,7 +289,7 @@ class _ProfileTabState extends State<ProfileTab> {
                 _MenuItem(
                     icon: menu[i].$1,
                     label: menu[i].$2,
-                    muted: menu[i].$3,
+                    danger: menu[i].$3,
                     onTap: menu[i].$4),
                 if (i != menu.length - 1) const SizedBox(height: 10),
               ],
@@ -412,15 +434,18 @@ class _MenuItem extends StatelessWidget {
       {required this.icon,
       required this.label,
       required this.onTap,
-      this.muted = false});
+      this.danger = false});
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool muted;
+
+  /// Shows the label and icon in the brand red (used for Log-out).
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
-    final fg = muted ? EhbrColors.muted : EhbrColors.ink;
+    final fg = danger ? EhbrColors.brand : EhbrColors.ink;
+    final iconColor = danger ? EhbrColors.brand : _pIcon;
     return Material(
       color: Colors.white,
       shape: RoundedRectangleBorder(
@@ -439,8 +464,7 @@ class _MenuItem extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                     color: _pSurface, borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon,
-                    size: 20, color: muted ? EhbrColors.muted : _pIcon),
+                child: Icon(icon, size: 20, color: iconColor),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -456,35 +480,59 @@ class _MenuItem extends StatelessWidget {
 }
 
 class _MyReports extends StatefulWidget {
-  const _MyReports({required this.onBack, this.openReportId, this.openToken = 0, this.onOpened});
-  final VoidCallback onBack;
+  const _MyReports({this.openReportId, required this.deepLink});
 
   /// Report whose details open as soon as the list has loaded.
   final String? openReportId;
-  final int openToken;
-  final VoidCallback? onOpened;
+
+  /// Fires when a notification asks to open a report while this page is open.
+  final ValueListenable<(int, String?)> deepLink;
 
   @override
   State<_MyReports> createState() => _MyReportsState();
 }
 
 class _MyReportsState extends State<_MyReports> {
+  /// How many reports are shown per page.
+  static const int _pageSize = 10;
+
   /// Selected status group. null = all.
   /// Keys: NEW, VERIFIED, DISPATCHED, RESOLVED, OTHER (not accepted).
   String? _filter;
   String? _pendingId;
 
+  /// Current page (0-based) and a token that forces the list to reload.
+  int _page = 0;
+  int _reloadToken = 0;
+
+  final ScrollController _listScroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _pendingId = widget.openReportId;
+    widget.deepLink.addListener(_onDeepLink);
   }
 
-  @override
-  void didUpdateWidget(covariant _MyReports old) {
-    super.didUpdateWidget(old);
-    if (widget.openToken != old.openToken && widget.openReportId != null) {
-      _pendingId = widget.openReportId;
+  void _onDeepLink() {
+    final id = widget.deepLink.value.$2;
+    if (id == null) return;
+    setState(() {
+      _pendingId = id;
+      _filter = null;
+      _page = 0;
+      _reloadToken++; // reload so a brand-new report is in the list
+    });
+  }
+
+  void _goToPage(int p) {
+    setState(() => _page = p);
+    if (_listScroll.hasClients) {
+      _listScroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -513,6 +561,8 @@ class _MyReportsState extends State<_MyReports> {
 
   @override
   void dispose() {
+    widget.deepLink.removeListener(_onDeepLink);
+    _listScroll.dispose();
     _chipScroll.dispose();
     super.dispose();
   }
@@ -834,7 +884,10 @@ class _MyReportsState extends State<_MyReports> {
                     count: c.$3,
                     selected: _filter == c.$2,
                     onTap: () {
-                      setState(() => _filter = c.$2);
+                      setState(() {
+                        _filter = c.$2;
+                        _page = 0;
+                      });
                       _centerChip(c.$2 ?? 'ALL');
                     },
                   ),
@@ -850,7 +903,56 @@ class _MyReportsState extends State<_MyReports> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Fixed header: back button + title.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).maybePop(),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                              color: EhbrColors.ink, shape: BoxShape.circle),
+                          child: const Icon(Icons.chevron_left,
+                              color: Colors.white, size: 18),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).maybePop(),
+                        child: Text('Back to Profile',
+                            style:
+                                manrope(14, FontWeight.w600, EhbrColors.ink)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text('My Reports',
+                      style: manrope(20, FontWeight.w800, EhbrColors.ink)),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+            Expanded(child: _body()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _body() {
     return AsyncBody<List<Report>>(
+      reloadToken: _reloadToken,
       load: () async {
         try {
           return await Api.myReports();
@@ -867,7 +969,6 @@ class _MyReportsState extends State<_MyReports> {
         final pid = _pendingId;
         if (pid != null) {
           _pendingId = null;
-          widget.onOpened?.call();
           final match = reports.where((r) => r.id == pid);
           if (match.isNotEmpty) {
             final r = match.first;
@@ -876,158 +977,267 @@ class _MyReportsState extends State<_MyReports> {
             });
           }
         }
-        final shown = reports
+
+        final filtered = reports
             .where((r) => _filter == null || _group(r.status) == _filter)
             .toList();
 
-        return RefreshIndicator(
-          onRefresh: refresh,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
-            children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: widget.onBack,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                          color: EhbrColors.ink, shape: BoxShape.circle),
-                      child: const Icon(Icons.chevron_left,
-                          color: Colors.white, size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: widget.onBack,
-                    child: Text('Back to Profile',
-                        style: manrope(14, FontWeight.w600, EhbrColors.ink)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Text('My Reports',
-                  style: manrope(20, FontWeight.w800, EhbrColors.ink)),
-              const SizedBox(height: 12),
+        // Pagination: only _pageSize reports are drawn at a time.
+        final totalPages =
+            filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+        final page = _page >= totalPages ? totalPages - 1 : _page;
+        final shown = filtered.skip(page * _pageSize).take(_pageSize).toList();
 
-              // Status filter chips.
-              if (reports.isNotEmpty) ...[
-                _filterChips(reports),
-                const SizedBox(height: 14),
-              ] else
-                const SizedBox(height: 2),
+        return Column(
+          children: [
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: refresh,
+                child: ListView(
+                  controller: _listScroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  children: [
+                    // Status filter chips.
+                    if (reports.isNotEmpty) ...[
+                      _filterChips(reports),
+                      const SizedBox(height: 14),
+                    ] else
+                      const SizedBox(height: 2),
 
-              // Reports waiting to send are only shown under "ALL".
-              if (_filter == null)
-                ValueListenableBuilder<int>(
-                  valueListenable: ReportQueue.changes,
-                  builder: (context, _, __) => Column(
-                    children: [
-                      for (final q in ReportQueue.pending) ...[
-                        Material(
-                          color: const Color(0xFFFFF4D6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(color: Color(0xFFF2D58A)),
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const QueuedReportsScreen()),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 12),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.schedule_send_outlined,
-                                      size: 18, color: _pIcon),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                        '${q.type} · saved on your phone',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: manrope(13, FontWeight.w700,
-                                            EhbrColors.ink)),
+                    // Reports waiting to send: only under "ALL", first page.
+                    if (_filter == null && page == 0)
+                      ValueListenableBuilder<int>(
+                        valueListenable: ReportQueue.changes,
+                        builder: (context, _, __) => Column(
+                          children: [
+                            for (final q in ReportQueue.pending) ...[
+                              Material(
+                                color: const Color(0xFFFFF4D6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: const BorderSide(
+                                      color: Color(0xFFF2D58A)),
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const QueuedReportsScreen()),
                                   ),
-                                  Text('Waiting to send',
-                                      style: manrope(10, FontWeight.w800,
-                                          const Color(0xFF8A6100))),
-                                ],
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 12),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                            Icons.schedule_send_outlined,
+                                            size: 18,
+                                            color: _pIcon),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                              '${q.type} · saved on your phone',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: manrope(13,
+                                                  FontWeight.w700,
+                                                  EhbrColors.ink)),
+                                        ),
+                                        Text('Waiting to send',
+                                            style: manrope(
+                                                10,
+                                                FontWeight.w800,
+                                                const Color(0xFF8A6100))),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                              const SizedBox(height: 10),
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                      ],
-                    ],
-                  ),
-                ),
-              if (reports.isEmpty && ReportQueue.pending.isEmpty)
-                const EmptyState(
-                  icon: Icons.description_outlined,
-                  title: 'You haven’t filed any reports',
-                  message:
-                      'Use “Report Incident” or “Report Hazard” on the Home screen.',
-                )
-              else if (reports.isNotEmpty && shown.isEmpty)
-                const EmptyState(
-                  icon: Icons.filter_list_rounded,
-                  title: 'No reports here',
-                  message: 'None of your reports have this status right now.',
-                ),
-              for (final r in shown) ...[
-                Material(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: _pBorder),
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _details(context, r, refresh),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                    if (reports.isEmpty && ReportQueue.pending.isEmpty)
+                      const EmptyState(
+                        icon: Icons.description_outlined,
+                        title: 'You haven’t filed any reports',
+                        message:
+                            'Use “Report Incident” or “Report Hazard” on the Home screen.',
+                      )
+                    else if (reports.isNotEmpty && filtered.isEmpty)
+                      const EmptyState(
+                        icon: Icons.filter_list_rounded,
+                        title: 'No reports here',
+                        message:
+                            'None of your reports have this status right now.',
+                      ),
+                    for (final r in shown) ...[
+                      Material(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: _pBorder),
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => _details(context, r, refresh),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
                               children: [
-                                Text(r.type,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: manrope(
-                                        14, FontWeight.w700, EhbrColors.ink)),
-                                const SizedBox(height: 3),
-                                Text('${r.id} · ${ago(r.createdAt)}',
-                                    style: manrope(
-                                        11, FontWeight.w500, EhbrColors.muted)),
-                                if (r.canReply) ...[
-                                  const SizedBox(height: 3),
-                                  Text('Reply needed',
-                                      style: manrope(11, FontWeight.w700, _pRed)),
-                                ],
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(r.type,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: manrope(14, FontWeight.w700,
+                                              EhbrColors.ink)),
+                                      const SizedBox(height: 3),
+                                      Text('${r.id} · ${ago(r.createdAt)}',
+                                          style: manrope(11, FontWeight.w500,
+                                              EhbrColors.muted)),
+                                      if (r.canReply) ...[
+                                        const SizedBox(height: 3),
+                                        Text('Reply needed',
+                                            style: manrope(
+                                                11, FontWeight.w700, _pRed)),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                // Short wording so the pill is never cut off.
+                                _StatusPill(r.status),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          // Short wording so the pill is never cut off.
-                          _StatusPill(r.status),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 10),
-              ],
-            ],
-          ),
+              ),
+            ),
+
+            // Pagination bar, pinned under the list (only when there is more than one page).
+            if (totalPages > 1)
+              _PaginationBar(
+                page: page,
+                totalPages: totalPages,
+                onPrev: page > 0 ? () => _goToPage(page - 1) : null,
+                onNext: page < totalPages - 1 ? () => _goToPage(page + 1) : null,
+              ),
+          ],
         );
       },
+    );
+  }
+}
+
+// ------------------------------------------------------------
+// PAGINATION BAR: [‹ Prev]   1 of 2   [Next ›]
+// ------------------------------------------------------------
+
+class _PaginationBar extends StatelessWidget {
+  const _PaginationBar({
+    required this.page,
+    required this.totalPages,
+    required this.onPrev,
+    required this.onNext,
+  });
+
+  /// 0-based current page.
+  final int page;
+  final int totalPages;
+
+  /// null = disabled (first / last page).
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: _pBorder)),
+      ),
+      child: Row(
+        children: [
+          _PagerButton(
+            label: 'Prev',
+            icon: Icons.chevron_left_rounded,
+            iconFirst: true,
+            onTap: onPrev,
+          ),
+          Expanded(
+            child: Center(
+              child: Text(
+                '${page + 1} of $totalPages',
+                style: manrope(12, FontWeight.w600, EhbrColors.ink),
+              ),
+            ),
+          ),
+          _PagerButton(
+            label: 'Next',
+            icon: Icons.chevron_right_rounded,
+            iconFirst: false,
+            onTap: onNext,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PagerButton extends StatelessWidget {
+  const _PagerButton({
+    required this.label,
+    required this.icon,
+    required this.iconFirst,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool iconFirst;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = onTap == null ? EhbrColors.muted : EhbrColors.ink;
+    final iconWidget = Icon(icon, size: 18, color: color);
+    final text = Text(label, style: manrope(12, FontWeight.w600, color));
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: _pBorder),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (iconFirst) ...[iconWidget, const SizedBox(width: 2), text]
+              else ...[text, const SizedBox(width: 2), iconWidget],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
