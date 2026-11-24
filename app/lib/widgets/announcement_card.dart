@@ -64,7 +64,7 @@ class AnnouncementCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(a.body,
-                  maxLines: 1,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: manrope(12, FontWeight.w700, EhbrColors.ink.withValues(alpha: .5))),
             ],
