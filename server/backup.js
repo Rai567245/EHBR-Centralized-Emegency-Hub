@@ -122,6 +122,12 @@ const rmrf = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } ca
 
 function register(ctx) {
   const { route, HttpError, UPLOAD_DIR, DATA_FILE, pg, maintenance } = ctx;
+  // Where photos live. The server passes the Supabase bucket; without it we fall back to the local uploads/ folder.
+  const photos = ctx.photos || {
+    async list() { try { return fs.readdirSync(UPLOAD_DIR, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => ({ name: e.name, size: fs.statSync(path.join(UPLOAD_DIR, e.name)).size })); } catch { return []; } },
+    async load(n) { try { return fs.readFileSync(path.join(UPLOAD_DIR, n)); } catch { return null; } },
+    async store(n, buf) { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); fs.writeFileSync(path.join(UPLOAD_DIR, n), buf); },
+  };
   const BACKUP_DIR = path.resolve(process.env.BACKUP_DIR || path.join(__dirname, 'backups'));
   const TZ = process.env.BACKUP_TZ || 'Asia/Manila';
   const CONFIG_FILE = path.join(BACKUP_DIR, 'config.json');
@@ -298,7 +304,11 @@ function register(ctx) {
     t.meta = [{ key: 'settings', doc: db.settings, at: null }, { key: 'counters', doc: db.counters, at: null }];
     return JSON.parse(JSON.stringify(t));   // deep copy in one tick = consistent snapshot
   };
-  const uploadFiles = () => { try { return fs.readdirSync(UPLOAD_DIR, { withFileTypes: true }).filter((e) => e.isFile() && UPLOAD_NAME_RE.test(e.name)).map((e) => e.name); } catch { return []; } };
+  /** [{ name, size }] of every photo that belongs in a backup. A storage failure stops the backup instead of leaving photos out. */
+  const uploadFiles = async () => {
+    try { return (await photos.list()).filter((f) => UPLOAD_NAME_RE.test(f.name)); }
+    catch (e) { console.error('[backup] could not list photos:', e.message); throw new BackupError('The photos could not be read from storage, so no backup was created. Try again in a minute.'); }
+  };
 
   /** Does the work for an already-created meta. Never throws: failures are recorded on the meta. */
   async function runBackup(m, { releaseLock = true } = {}) {
@@ -308,10 +318,10 @@ function register(ctx) {
       m.status = 'in_progress'; saveMeta(m); if (state) { state.id = m.id; state.phase = 'snapshot'; }
       if (pg) await pg.flush();
       const tables = pg ? await pg.dumpAll() : fileTables(ctx.getDb());
-      const names = uploadFiles();
+      const files = await uploadFiles();
       const jsonBufs = Object.fromEntries(TABLES.map((t) => [t, Buffer.from(JSON.stringify(tables[t] || []))]));
       let need = Object.values(jsonBufs).reduce((a, b) => a + b.length, 0);
-      for (const n of names) { try { need += fs.statSync(path.join(UPLOAD_DIR, n)).size; } catch { /* vanished */ } }
+      for (const f of files) need += f.size || 0;
       try { const s = fs.statfsSync(BACKUP_DIR); if (s.bavail * s.bsize < need + 20 * 1024 * 1024) throw new BackupError('Not enough free storage space to create a backup.'); } catch (e) { if (e instanceof BackupError) throw e; }
 
       if (state) state.phase = 'writing';
@@ -323,8 +333,11 @@ function register(ctx) {
           manifest.files[name] = { size: b.length, sha256: crypto.createHash('sha256').update(b).digest('hex') };
           yield tarHeader(name, b.length); yield b; yield tarPad(b.length);
         }
-        for (const n of names) {
-          let b; try { b = fs.readFileSync(path.join(UPLOAD_DIR, n)); } catch { continue; }   // file removed while we ran: skip it
+        for (const { name: n } of files) {
+          let b;
+          try { b = await photos.load(n); }
+          catch (e) { console.error('[backup] could not read photo', n, e.message); throw new BackupError('A photo could not be read from storage, so no backup was created. Try again in a minute.'); }
+          if (!b) continue;                                                                    // photo deleted while we ran: skip it
           const name = `uploads/${n}`;
           manifest.files[name] = { size: b.length, sha256: crypto.createHash('sha256').update(b).digest('hex') };
           manifest.uploads.count++; manifest.uploads.bytes += b.length;
@@ -401,9 +414,11 @@ function register(ctx) {
     const db = ctx.getDb();                                                 // keep sessions only for users that still exist
     const ids = new Set(db.users.map((u) => u.id));
     for (const [tok, s] of Object.entries(db.sessions)) if (!ids.has(s.userId)) delete db.sessions[tok];
-    if (extractedDir) {                                                     // photos: copy in, never delete newer files
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-      for (const n of v.uploadNames) fs.copyFileSync(path.join(extractedDir, n), path.join(UPLOAD_DIR, n));
+    if (extractedDir) {                                                     // photos: put back into storage, never delete newer files
+      for (const n of v.uploadNames) {
+        try { await photos.store(n, fs.readFileSync(path.join(extractedDir, n))); }
+        catch (e) { console.error('[backup] could not restore photo', n, e.message); throw new BackupError('The photos could not be written back to storage.'); }
+      }
     }
     await ctx.save();
   }
@@ -609,7 +624,7 @@ function register(ctx) {
   setTimeout(tick, 15 * 1000).unref();
   console.log(`  Backups        ${BACKUP_DIR} (${key ? 'encrypted' : 'NOT encrypted – set BACKUP_ENCRYPTION_KEY'}, ${TZ})`);
 
-  return { _test: { checkArchive, runBackup, newMeta, listMetas, getMeta, cleanup, nextRunAt, readConfig, writeConfig, tick, state: () => state, tokens } };
+  return { _test: { checkArchive, runBackup, applyBackup, newMeta, listMetas, getMeta, cleanup, nextRunAt, readConfig, writeConfig, tick, state: () => state, tokens } };
 }
 
 module.exports = { register, PERMS };
