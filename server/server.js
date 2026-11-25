@@ -290,11 +290,26 @@ function limit(rule, key, cost = 1) {
 class HttpError extends Error { constructor(status, msg, retryAfter) { super(msg); this.status = status; this.retryAfter = retryAfter; } }
 const bad = (msg) => new HttpError(400, msg);
 
+// Security headers sent on EVERY response (web pages, API, images and error pages), not just API calls.
+// Referrer-Policy stays strict-origin-when-cross-origin on purpose: OpenStreetMap's tile servers refuse
+// requests that carry no Referer at all, so "no-referrer" would blank the incident map.
+const SEC_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=(), usb=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'X-Permitted-Cross-Domain-Policies': 'none',
+};
+
 function send(res, status, body, headers = {}) {
   const data = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
-    'X-Content-Type-Options': 'nosniff',
+    ...SEC_HEADERS,
+    // API answers are data, never pages: nothing may load or run from them.
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
     'Cache-Control': 'no-store',
     ...headers,
   });
@@ -1429,14 +1444,29 @@ require('./reportgen').register({
 // ------------------------------------------------------------------ static admin console
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; " +
-  "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+  "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self'; " +
+  "object-src 'none'; frame-src 'none'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+const TEXT_HEADERS = { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' };
 function serveStatic(req, res, pathname) {
-  if (pathname === '/' || pathname === '/admin') { res.writeHead(302, { Location: '/admin/login.html' }); return res.end(); }
+  // Keep search engines away from the admin console.
+  if (pathname === '/robots.txt') {
+    res.writeHead(200, { ...SEC_HEADERS, ...TEXT_HEADERS });
+    return res.end('User-agent: *\nDisallow: /\n');
+  }
+  // security.txt: where researchers can report a problem (set SECURITY_CONTACT on Render, e.g. an email address).
+  if (pathname === '/.well-known/security.txt') {
+    let contact = (process.env.SECURITY_CONTACT || '').trim();
+    if (!contact) return send(res, 404, { error: 'Not found' });
+    if (!/^(mailto:|https?:)/i.test(contact)) contact = 'mailto:' + contact;
+    res.writeHead(200, { ...SEC_HEADERS, ...TEXT_HEADERS });
+    return res.end(`Contact: ${contact}\nExpires: ${new Date(Date.now() + 180 * 86400000).toISOString()}\nPreferred-Languages: en\nCanonical: ${publicBase(req)}/.well-known/security.txt\n`);
+  }
+  if (pathname === '/' || pathname === '/admin') { res.writeHead(302, { Location: '/admin/login.html', ...SEC_HEADERS }); return res.end(); }
   let rel = decodeURIComponent(pathname.replace(/^\/admin\/?/, '')) || 'login.html';
   const file = path.normalize(path.join(ADMIN_DIR, rel));
   if (!file.startsWith(ADMIN_DIR + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res, 404, { error: 'Not found' });
   const ext = path.extname(file);
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': CSP });
+  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store', ...SEC_HEADERS, 'Content-Security-Policy': CSP, 'X-Robots-Tag': 'noindex, nofollow' });
   fs.createReadStream(file).pipe(res);
 }
 
@@ -1455,11 +1485,8 @@ const server = http.createServer(async (req, res) => {
     'Access-Control-Allow-Headers': 'Authorization, Content-Type', 
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS', 
     'Vary': 'Origin',
-    // Phase 1 (SEC-31): Security headers
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+    // Phase 1 (SEC-31): Security headers (shared with every other response)
+    ...SEC_HEADERS,
   };
 
   try {
