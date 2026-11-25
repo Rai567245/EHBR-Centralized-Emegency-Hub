@@ -46,6 +46,43 @@ async function loadPhoto(name) {
   try { return fs.readFileSync(path.join(UPLOAD_DIR, name)); } catch { return null; }
 }
 
+// Photo access for Backup & Restore: every photo in the storage bucket (or in uploads/ when running locally).
+const PHOTO_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+const backupPhotos = {
+  /** [{ name, size }] */
+  async list() {
+    if (!sb) {
+      try {
+        return fs.readdirSync(UPLOAD_DIR, { withFileTypes: true }).filter((e) => e.isFile())
+          .map((e) => ({ name: e.name, size: fs.statSync(path.join(UPLOAD_DIR, e.name)).size }));
+      } catch { return []; }
+    }
+    const out = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data, error } = await sb.storage.from(BUCKET).list('', { limit: 100, offset, sortBy: { column: 'name', order: 'asc' } });
+      if (error) throw new Error('storage list failed: ' + error.message);
+      if (!data || !data.length) break;
+      for (const o of data) if (o.id) out.push({ name: o.name, size: (o.metadata && o.metadata.size) || 0 });   // folders have no id
+      if (data.length < 100) break;
+    }
+    return out;
+  },
+  /** Buffer, or null when the file no longer exists. Any other failure throws, so a backup never silently skips a photo. */
+  async load(name) {
+    if (!sb) return loadPhoto(name);
+    const { data, error } = await sb.storage.from(BUCKET).download(name);
+    if (error) {
+      if (/not.?found|does not exist|404/i.test(String(error.message || '') + String(error.statusCode || '') + String(error.status || ''))) return null;
+      throw new Error('storage download failed: ' + error.message);
+    }
+    return Buffer.from(await data.arrayBuffer());
+  },
+  async store(name, buf) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    return storePhoto(name, buf, PHOTO_TYPES[ext] || 'application/octet-stream');
+  },
+};
+
 async function deletePhoto(name) {
   if (!name) return;
   try {
@@ -1432,6 +1469,7 @@ route('PUT', '/api/admin/settings', 'admin', ({ body, user }) => {
 // ------------------------------------------------------------------ backup & restore (see backup.js)
 require('./backup').register({
   route, HttpError, pg, save, log, nowIso, fullName, checkPw, limiter, maintenance, UPLOAD_DIR, DATA_FILE, emptyDb, normalize,
+  photos: backupPhotos,
   getDb: () => db, setDb: (d) => { db = d; },
 });
 
