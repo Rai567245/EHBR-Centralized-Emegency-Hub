@@ -24,9 +24,12 @@
   function drawCategory() {
     $('#cat').innerHTML = meta.categories.map((c) => `<option value="${esc(c.id)}"${c.id === state.category ? ' selected' : ''}>${esc(c.label)}</option>`).join('');
     $('#catDesc').textContent = catOf(state.category).desc;
+    syncPeriodStep();
   }
+  // A forecast looks ahead from today, so there is no period to choose.
+  function syncPeriodStep() { const el = $('#periodStep'); if (el) el.hidden = !!catOf(state.category).noPeriod; }
   function drawPeriod() {
-    $$('#seg button').forEach((b) => b.classList.toggle('is-on', b.dataset.p === state.pType));
+    $$('#seg button').forEach((b) => { const on = b.dataset.p === state.pType; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
     const t = state.pType, d = state.date;
     $('#pInputs').innerHTML =
       t === 'day' ? `<input class="input" type="date" id="pDate" value="${esc(d)}" aria-label="Day">` :
@@ -54,6 +57,23 @@
     return { category: state.category, period, filters, includeLocation: state.includeLocation };
   };
   const schedule = () => { clearTimeout(timer); timer = setTimeout(preview, 300); };
+  // An unfinished period (a half-typed year, an empty date, start after end) is caught here, so it shows a hint instead of a server error.
+  function periodProblem() {
+    if (catOf(state.category).noPeriod) return '';
+    const t = state.pType;
+    if (t === 'custom') {
+      if (!state.from || !state.to) return 'Choose both a start date and an end date.';
+      if (state.from > state.to) return 'The start date is after the end date.';
+    } else if (!state.date) return t === 'year' ? 'Type a four-digit year, for example 2026.' : 'Choose a date for the report period.';
+    return '';
+  }
+  const announce = (text) => { const s = $('#rgStatus'); if (s) s.textContent = text; };
+  // Update only the "Clear / All" label of one filter. A full redraw would reset the list's scroll position and drop keyboard focus from the checkbox.
+  function syncFilterHeader(wrap, key) {
+    const t = wrap && wrap.querySelector('.rg-filter__t'); if (!t) return;
+    [...t.children].slice(1).forEach((x) => x.remove());
+    t.insertAdjacentHTML('beforeend', (state.filters[key] || []).length ? `<button type="button" data-clear="${key}">Clear</button>` : '<span style="font-weight:400;color:var(--muted);font-size:11.5px">All</span>');
+  }
 
   // ------------------------------------------------------------- pagination (one section per page, plus paging inside the long report list)
   const pages = new Map(); // block key -> current page; cleared whenever a new preview arrives
@@ -98,7 +118,8 @@
     const fmtBtn = (f, label) => `<button class="btn btn--sm${f === 'pdf' ? ' btn--primary' : ''}" type="button" data-fmt="${f}"${off ? ' disabled' : ''} title="${f === 'csv' ? 'CSV: ' + esc(catOf(d.category).csv) : ''}">${ico('i-dl')}${label}</button>`;
     const chips = [['Period', d.period.label], ...d.filters, ['Time zone', `${d.tz} (${d.tzOffset})`], ['Records', d.matching.toLocaleString()]].map(([k, v]) => `<span class="rg-chip"><b>${esc(k)}:</b> ${esc(v)}</span>`).join('');
     let h = `<div class="rg-head"><div><h2>${esc(d.title)}</h2><p>${esc(d.barangay)} · ${esc(d.period.label)}</p></div><div class="rg-export">${can.export ? fmtBtn('pdf', 'PDF') + fmtBtn('xlsx', 'Excel') + fmtBtn('csv', 'CSV') : '<span class="rg__desc">You can preview reports but not export them.</span>'}</div></div><div class="rg-chips">${chips}</div>`;
-    if (d.empty) h += '<div class="rg-empty"><b>No records match</b><span>Nothing was recorded for this period and these filters. Try a longer period or remove a filter. No file can be exported for an empty report.</span></div>';
+    if (d.empty && (catOf(state.category) || {}).noPeriod) h += `<div class="rg-empty"><b>No forecast yet</b><span>${esc((d.notes || [])[0] || 'There is not enough report history.')} No file can be exported until a forecast can be made.</span></div>`;
+    else if (d.empty) h += '<div class="rg-empty"><b>No records match</b><span>Nothing was recorded for this period and these filters. Try a longer period or remove a filter. No file can be exported for an empty report.</span></div>';
     if (d.summary.length) h += `<div class="rg-cards">${d.summary.map((c) => `<div class="rg-card"><p class="rg-card__l">${esc(c.label)}</p><p class="rg-card__v">${esc(c.value)}</p>${c.note ? `<p class="rg-card__n">${esc(c.note)}</p>` : ''}</div>`).join('')}</div>`;
     if (d.notes.length) h += `<div class="rg-note"><b>Data notes</b><ul>${d.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>`;
     if (!d.empty) {
@@ -110,9 +131,12 @@
     if (d.definitions.length) h += `<details class="rg-defs"><summary>What these numbers mean</summary><dl>${d.definitions.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details>`;
     $('#result').innerHTML = h;
     setupPagers();
+    announce(d.empty ? 'No records match this period and these filters.' : `Preview updated: ${d.matching.toLocaleString()} records.`);
   }
   async function preview() {
     const id = ++reqId, box = $('#result');
+    const problem = periodProblem();
+    if (problem) { doc = null; box.classList.remove('rg-loading'); box.innerHTML = `<div class="rg-note rg-note--blue"><b>Finish choosing the period</b>${esc(problem)}</div>`; announce(problem); return; }
     box.classList.add('rg-loading');
     try {
       const d = await api(`${API}/preview`, { method: 'POST', body: { config: config() } });
@@ -120,7 +144,7 @@
       doc = d; pages.clear(); renderDoc(d);
     } catch (e) {
       if (id !== reqId) return;
-      doc = null; box.innerHTML = `<div class="rg-note rg-note--red"><b>This report cannot be built yet</b>${esc(e.message || 'Something went wrong.')}</div>`;
+      doc = null; box.innerHTML = `<div class="rg-note rg-note--red"><b>This report cannot be built yet</b>${esc(e.message || 'Something went wrong.')}</div>`; announce('The report could not be built. ' + (e.message || ''));
     } finally { if (id === reqId) box.classList.remove('rg-loading'); }
   }
 
@@ -152,8 +176,8 @@
       historyItems = items;
       $('#cHist').textContent = items.length;
       $('#histBody').innerHTML = items.map((m) => `<tr data-id="${esc(m.id)}"><td><div class="rg-first"><b>${esc(m.categoryLabel)}</b><span class="rg-sub">${esc(m.filters)}</span>${m.detailed ? '<span class="pill pill--red pill--sm">Confidential</span>' : ''}${m.status === 'failed' ? `<span class="rg-sub" style="color:#b42318">${esc(m.error || 'Failed')}</span>` : ''}</div></td>
-        <td data-label="Period"><span class="rg-val">${esc(m.period)}<span class="rg-sub">${m.matching.toLocaleString()} record(s)</span></span></td><td data-label="Format"><span class="rg-val">${esc(m.formatLabel)}${m.encrypted ? '<span class="rg-sub">Encrypted</span>' : ''}</span></td>
-        <td data-label="Generated"><span class="rg-val">${esc(when(m.createdAt))}<span class="rg-sub">${esc(m.createdBy)}</span></span></td><td data-label="Size">${m.status === 'completed' ? esc(bytes(m.size)) : '—'}</td><td data-label="Expires">${esc(when(m.expiresAt))}</td>
+        <td data-label="Period"><span class="rg-val">${esc(m.period)}<span class="rg-sub">${Number(m.matching || 0).toLocaleString()} record(s)</span></span></td><td data-label="Format"><span class="rg-val">${esc(m.formatLabel)}${m.encrypted ? '<span class="rg-sub">Encrypted</span>' : ''}</span></td>
+        <td data-label="Generated"><span class="rg-val">${esc(when(m.createdAt))}<span class="rg-sub">${esc(m.createdBy)}</span></span></td><td data-label="Size">${m.status === 'completed' ? esc(bytes(Number(m.size) || 0)) : '—'}</td><td data-label="Expires">${esc(when(m.expiresAt))}</td>
         <td data-label="Actions" class="rg-actions-cell"><div class="rg-actions">${m.status === 'completed' && meta.can.download ? `<button class="btn btn--sm" type="button" data-act="dl">${ico('i-dl')}Download</button>` : ''}${meta.can.delete ? `<button class="x-btn" type="button" data-act="rm" title="Delete file" aria-label="Delete file">${ico('i-trash')}</button>` : ''}</div></td></tr>`).join('');
       $('#histEmpty').innerHTML = items.length ? '' : '<div class="empty"><b>Nothing generated yet</b>Files you export appear here until they expire.</div>';
       $('#histNote').textContent = `Generated files are kept for ${meta.retentionDays} days, then removed automatically. The audit log keeps the record that they were created.`;
@@ -185,7 +209,7 @@
   }
 
   // ------------------------------------------------------------- events
-  $('#cat').addEventListener('change', (e) => { state.category = e.target.value; state.filters = {}; state.includeLocation = false; $('#optLoc').checked = false; $('#catDesc').textContent = catOf(state.category).desc; drawFilters(); schedule(); });
+  $('#cat').addEventListener('change', (e) => { state.category = e.target.value; state.filters = {}; state.includeLocation = false; $('#optLoc').checked = false; $('#catDesc').textContent = catOf(state.category).desc; syncPeriodStep(); drawFilters(); schedule(); });
   $('#seg').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; state.pType = b.dataset.p; if (state.pType === 'custom' && !state.from) { state.from = state.date; state.to = state.date; } drawPeriod(); schedule(); });
   $('#presets').addEventListener('click', (e) => { const b = e.target.closest('[data-preset]'); if (!b) return; state.pType = { today: 'day', week: 'week', month: 'month', year: 'year' }[b.dataset.preset]; state.date = meta.today; drawPeriod(); schedule(); });
   $('#pInputs').addEventListener('input', (e) => {
@@ -197,7 +221,7 @@
   $('#filters').addEventListener('change', (e) => {
     const box = e.target.closest('[data-f]'); if (!box && !e.target.dataset.f) return;
     if (e.target.dataset.f === 'team') state.filters.team = e.target.value;
-    else { const key = box.dataset.f; state.filters[key] = $$('input:checked', box).map((i) => i.value); drawFilters(); }
+    else { const key = box.dataset.f; state.filters[key] = $$('input:checked', box).map((i) => i.value); syncFilterHeader(box.closest('.rg-filter'), key); }
     schedule();
   });
   $('#filters').addEventListener('click', (e) => { const b = e.target.closest('[data-clear]'); if (!b) return; delete state.filters[b.dataset.clear]; drawFilters(); schedule(); });
