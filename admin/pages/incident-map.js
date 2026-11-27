@@ -3,7 +3,8 @@
 (async () => {
   if (!EH.init()) return;
   RP.load();
-  const { $, $$, api, fail, makeMap, marker, esc } = EH;
+  const { $, $$, api, fail, makeMap } = EH;
+  const { pin, tip, TIP } = MapPins;   // shared pins (mappins.js)
   let map = null, layer = null, filter = 'all', selected = null, status = 'active', range = { key: 'all', from: null, to: null }, layers = { incident: true, hazard: true, center: true, block: true }, lastOk = null, data = { reports: [], centers: [], blocks: [], settings: null };
 
   function showPanel(r) {
@@ -29,22 +30,22 @@
     layer = L.featureGroup().addTo(map);
     const pts = [];
 
-    // Escape resident-supplied strings before displaying them in map tooltips.
+    // Pins and tooltips come from mappins.js, which escapes every resident-supplied string.
     if (filter !== 'center') located.filter((r) => (filter === 'all' || r.kind === filter) && layers[r.kind]).forEach((r) => {
-      const m = marker(layer, r.lat, r.lng, r.kind, { radius: r.id === selected ? 12 : 9 });
-      m.bindTooltip(esc(`${r.type} · ${r.locationText || ''}`));
+      const m = pin(layer, r.lat, r.lng, r.kind === 'hazard' ? 'hazard' : 'incident', { urgent: r.urgency === 'High' || r.urgency === 'Critical', selected: r.id === selected, keyboard: true });
+      m.bindTooltip(tip(r.type, [r.locationText, r.urgency, r.status].filter(Boolean).join(' · ')), TIP);
       m.on('click', () => showPanel(r));
       pts.push([r.lat, r.lng]);
     });
 
     if ((filter === 'all' || filter === 'center') && layers.center) data.centers.filter((c) => c.lat != null).forEach((c) => {
-      marker(layer, c.lat, c.lng, 'center').bindTooltip(esc(`${c.name} · ${c.status}`));
+      pin(layer, c.lat, c.lng, 'center').bindTooltip(tip(c.name, c.capacity ? `${c.occupied || 0} of ${c.capacity} in use · ${c.status}` : c.status), TIP);
       pts.push([c.lat, c.lng]);
     });
 
     if (layers.block) data.blocks.filter((b) => !b.expired).forEach((b) => {
-      marker(layer, b.lat, b.lng, 'block', { radius: 10 })
-        .bindTooltip(esc(`Road blocked: ${b.title} · ${b.reason}`))
+      pin(layer, b.lat, b.lng, 'block', { keyboard: true })
+        .bindTooltip(tip(`Road blocked: ${b.title}`, b.reason), TIP)
         .on('click', () => { location.href = 'blockages.html'; });
     });
 
