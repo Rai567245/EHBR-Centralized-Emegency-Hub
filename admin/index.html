@@ -81,28 +81,78 @@
         <article class="stat tone-green"><div class="stat__head"><span class="stat__icon"><svg class="icon "><use href="#i-shield"/></svg></span><span class="stat__label">Evacuation centers open</span></div>
           <p class="stat__value" id="sCen">–</p><p class="stat__note" id="nCen">&nbsp;</p><span class="stat__bar" id="barCen" hidden><i></i></span></article>
       </section>
+      <section class="row-insights">
+        <article class="card card--trend">
+          <div class="card__header"><h2 class="card__title">Reports this week</h2><span class="card__spacer"></span><a class="card__link" href="reports.html">View reports</a></div>
+          <div class="trend__top"><span class="trend__total" id="trendTotal">–</span><span class="trend__delta" id="trendDelta">Last 7 days</span></div>
+          <div class="bars" id="trendBars" aria-label="Reports filed per day, last 7 days"></div>
+          <div class="wk-status" id="statusWrap">
+            <div class="wk-donut" id="statusDonut"></div>
+            <ul class="wk-legend" id="statusLegend" aria-label="This week's reports by status"></ul>
+          </div>
+        </article>
+        <article class="card card--attn">
+          <div class="card__header"><h2 class="card__title">Needs attention</h2></div>
+          <div class="attn" id="attention"></div>
+        </article>
+      </section>
       <section class="row-map">
         <article class="card card--map">
-          <div class="card__header"><h2 class="card__title">Live incident map</h2><span class="card__spacer"></span>
-            <div class="legend"><span class="legend__item"><i class="dot dot--red"></i>Incident</span><span class="legend__item"><i class="dot dot--amber"></i>Hazard</span><span class="legend__item"><i class="dot dot--green"></i>Evacuation</span></div></div>
-          <div class="leaflet-host mini-map" id="miniMap"></div>
+          <div class="card__header"><h2 class="card__title">Live incident map</h2><span class="card__spacer"></span><a class="card__link" href="incident-map.html">Open full map</a></div>
+          <div class="dm-wrap">
+            <div class="leaflet-host mini-map map-soft" id="miniMap"></div>
+            <div class="dm-legend" role="group" aria-label="Map key">
+              <span><i class="dm-key dm-key--incident"></i>Incidents <b id="mkI">0</b></span>
+              <span><i class="dm-key dm-key--hazard"></i>Hazards <b id="mkH">0</b></span>
+              <span><i class="dm-key dm-key--center"></i>Evacuation <b id="mkC">0</b></span>
+            </div>
+          </div>
         </article>
         <article class="card card--queue">
           <div class="card__header"><h2 class="card__title">Priority queue</h2><span class="card__spacer"></span><a class="card__link" href="reports.html">View all</a></div>
           <div class="queue" id="queue"></div>
         </article>
       </section>
-      <section class="row-insights">
-        <article class="card card--trend">
-          <div class="card__header"><h2 class="card__title">Reports this week</h2><span class="card__spacer"></span><a class="card__link" href="reports.html">View reports</a></div>
-          <div class="trend__top"><span class="trend__total" id="trendTotal">–</span><span class="trend__delta" id="trendDelta">Last 7 days</span></div>
-          <div class="bars" id="trendBars" aria-label="Reports filed per day, last 7 days"></div>
-          <div class="split" id="statusSplit" aria-hidden="true"></div>
-          <div class="split__legend" id="statusLegend"></div>
+      <section class="row-forecast" aria-labelledby="fcTitle">
+        <article class="card card--forecast">
+          <div class="card__header fc__head">
+            <div class="fc__titlebox"><h2 class="card__title" id="fcTitle">Projected incidents</h2><p class="fc__sub" id="fcSub">Forecast based on your report history</p></div>
+            <span class="card__spacer"></span>
+            <div class="fc__ctl">
+              <div class="fc-seg" id="fcScope" role="group" aria-label="What to forecast">
+                <button type="button" data-v="all" aria-pressed="true">All</button><button type="button" data-v="incident" aria-pressed="false">Incidents</button><button type="button" data-v="hazard" aria-pressed="false">Hazards</button></div>
+              <div class="fc-seg" id="fcHorizon" role="group" aria-label="How far ahead">
+                <button type="button" data-v="7" aria-pressed="true">7 days</button><button type="button" data-v="14" aria-pressed="false">14 days</button><button type="button" data-v="30" aria-pressed="false">30 days</button></div>
+              <button class="btn btn--sm btn--fit" id="fcExport" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#i-dl"/></svg>Export</button>
+            </div>
+          </div>
+          <div class="fc__body">
+            <div class="fc__main">
+              <div class="fc__chart" id="fcChart"></div>
+              <div class="fc__legend" id="fcLegend" hidden>
+                <span><i class="fc-key fc-key--bar"></i>Reports so far</span>
+                <span><i class="fc-key fc-key--line"></i>Projected</span>
+                <span><i class="fc-key fc-key--band"></i>Likely range (80%)</span>
+              </div>
+            </div>
+            <div class="fc__side">
+              <div class="fc__kpis" id="fcKpis"></div>
+              <div class="fc__read" id="fcReadBox" hidden><p class="eyebrow">What this means</p><ul id="fcRead"></ul></div>
+            </div>
+            <div class="fc__mix" id="fcMix" hidden></div>
+          </div>
+          <details class="fc__how" id="fcHow" hidden>
+            <summary>How this forecast works</summary>
+            <p>It counts reports per day (rejected reports are left out), learns which weekdays are busier once there are 4 weeks of data, and projects the recent level and trend forward. The range shows where the real number should land about 4 times out of 5, based on how far off the forecast has been recently. It is a planning guide built only from reports in this system. It does not know about weather, events or typhoons, so it will not predict a sudden surge.</p>
+          </details>
         </article>
-        <article class="card card--attn">
-          <div class="card__header"><h2 class="card__title">Needs attention</h2></div>
-          <div class="attn" id="attention"></div>
+      </section>
+      <section class="row-interpret" aria-labelledby="inTitle">
+        <article class="card card--interpret">
+          <div class="card__header"><h2 class="card__title" id="inTitle">What the data says</h2><span class="card__spacer"></span><span class="in__asof" id="inAsOf"></span></div>
+          <p class="in__lead" id="inLead">Reading the data…</p>
+          <div class="in__grid" id="inGrid"></div>
+          <p class="in__foot">Worked out from the reports, road blockages, evacuation centers and announcements in this system. It describes what the numbers show; it does not explain why.</p>
         </article>
       </section>
       <section class="row-bottom">
@@ -121,7 +171,10 @@
 </div>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="app.js"></script>
+<script src="mappins.js"></script>
 <script src="reportpanel.js"></script>
+<script src="forecast.js"></script>
+<script src="interpret.js"></script>
 <script src="pages/dashboard.js"></script>
 <script src="sidebar.js"></script>
 </body>
