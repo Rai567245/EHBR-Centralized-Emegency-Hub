@@ -1,7 +1,8 @@
 'use strict';
 (async () => {
   if (!EH.init()) return;
-  const { $, esc, api, ago, when, toast, fail, modal, confirmBox, makeMap, marker } = EH;
+  const { $, esc, api, ago, when, toast, fail, modal, confirmBox, makeMap } = EH;
+  const { pin: mapPin, tip, TIP } = MapPins;   // shared pins (mappins.js)
   const REASONS = ['Flood', 'Accident', 'Road works', 'Fallen tree', 'Fire', 'Event / parade', 'Other'];
   let map = null, layer = null, pin = null, items = [], picked = null, page = 0;
 
@@ -15,7 +16,7 @@
     picked = { lat, lng };
     $('#bkLoc').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; $('#bkLoc').classList.add('is-set');
     if (pin) pin.remove();
-    pin = L.marker([lat, lng], { draggable: true }).addTo(map);
+    pin = L.marker([lat, lng], { draggable: true, icon: MapPins.pickIcon() }).addTo(map);
     pin.on('dragend', () => { const p = pin.getLatLng(); setPick(p.lat, p.lng); });
   }
 
@@ -46,7 +47,7 @@
     if (layer) layer.remove();
     layer = L.featureGroup().addTo(map);
     items.filter((x) => x.lat != null).forEach((x) => {
-      marker(layer, x.lat, x.lng, 'block', { radius: 11 }).bindTooltip(`${x.title} · ${x.reason}${x.expired ? ' (time passed)' : ''}`).on('click', () => focusItem(x.id));
+      mapPin(layer, x.lat, x.lng, 'block', { faded: !!x.expired, keyboard: true }).bindTooltip(tip(x.title, `${x.reason}${x.expired ? ' · time passed' : ''}`), TIP).on('click', () => focusItem(x.id));
     });
   }
   function focusItem(id, moveMap = true) {
