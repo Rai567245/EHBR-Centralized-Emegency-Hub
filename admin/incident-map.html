@@ -70,16 +70,16 @@
       <section class="card im__map">
         <div class="im__bar"><div class="chips" id="mapChips">
           <button class="chip is-on" data-f="all">All <span data-n="all">0</span></button>
-          <button class="chip" data-f="incident"><i class="dot dot--red dot--sm"></i>Incidents <span data-n="incident">0</span></button>
-          <button class="chip" data-f="hazard"><i class="dot dot--amber dot--sm"></i>Hazards <span data-n="hazard">0</span></button>
-          <button class="chip" data-f="center"><i class="dot dot--green dot--sm"></i>Evacuation <span data-n="center">0</span></button></div>
+          <button class="chip" data-f="incident"><i class="dm-key dm-key--incident"></i>Incidents <span data-n="incident">0</span></button>
+          <button class="chip" data-f="hazard"><i class="dm-key dm-key--hazard"></i>Hazards <span data-n="hazard">0</span></button>
+          <button class="chip" data-f="center"><i class="dm-key dm-key--center"></i>Evacuation <span data-n="center">0</span></button></div>
           <span class="grow"></span><span class="muted" id="mapStamp" style="font-size:11px"></span>
           <div class="im__tools"><select class="sel" id="mStatus" aria-label="Status"><option value="active">Status: Active</option><option value="all">Status: All</option><option value="NEW">New</option><option value="VERIFIED">Verified</option><option value="DISPATCHED">Dispatched</option><option value="RESOLVED">Resolved</option></select>
             <button class="btn btn--sm" id="mRange" type="button">All time</button><button class="btn btn--sm" id="mLayers" type="button"><svg class="icon "><use href="#i-sliders"/></svg>Layers</button>
             <div class="layers" id="layersPanel" hidden><b>MAP LAYERS</b><label><input type="checkbox" data-layer="incident" checked>Incidents</label><label><input type="checkbox" data-layer="hazard" checked>Hazards</label><label><input type="checkbox" data-layer="center" checked>Evacuation centers</label><label><input type="checkbox" data-layer="block" checked>Road blockages</label></div></div></div>
         <div class="banner" id="mapOffline" hidden><span id="mapOfflineText">Live updates paused.</span><button class="btn btn--sm btn--fit" id="mapRetry" type="button">Retry now</button></div>
-        <div class="leaflet-host" id="bigMap">
-          <div class="map-legend"><span><i class="dot dot--red"></i>Incident</span><span><i class="dot dot--amber"></i>Hazard</span><span><i class="dot dot--green"></i>Evacuation center</span><span><i class="dot" style="background:#111827"></i>Road blocked</span></div>
+        <div class="leaflet-host map-soft" id="bigMap">
+          <div class="map-legend"><span><i class="dm-key dm-key--incident"></i>Incident</span><span><i class="dm-key dm-key--hazard"></i>Hazard</span><span><i class="dm-key dm-key--center"></i>Evacuation center</span><span><i class="dm-key dm-key--block"></i>Road blocked</span></div>
         </div>
       </section>
       <aside class="panel" id="panel"><div class="empty"><b>No report selected</b>Click a marker on the map to see its details and take action.</div></aside>
@@ -88,6 +88,7 @@
 </div>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="app.js"></script>
+<script src="mappins.js"></script>
 <script src="reportpanel.js"></script>
 <script src="pages/incident-map.js"></script>
 <script src="sidebar.js"></script>
