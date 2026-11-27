@@ -78,6 +78,7 @@
     .rg-pager button:hover:not(:disabled) { color: var(--brand); border-color: var(--brand); }
     .rg-pager button:disabled { opacity: .45; cursor: default; }
     .rg-loading { opacity: .45; pointer-events: none; transition: opacity .15s; }
+    .rg-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
     .rg-defs summary { cursor: pointer; font-weight: 700; font-size: 13px; margin: 18px 0 8px; }
     .rg-defs dl { margin: 0; display: grid; grid-template-columns: 180px 1fr; gap: 6px 14px; font-size: 12.5px; }
     .rg-defs dt { font-weight: 700; } .rg-defs dd { margin: 0; color: #374151; line-height: 1.45; }
@@ -159,7 +160,7 @@
         <div class="rg">
           <aside class="rg__panel" id="panel" aria-label="Report settings">
             <div class="rg__step"><label class="rg__label" for="cat">1 · Report</label><select class="sel" id="cat"></select><p class="rg__desc" id="catDesc"></p></div>
-            <div class="rg__step"><span class="rg__label">2 · Period</span>
+            <div class="rg__step" id="periodStep"><span class="rg__label">2 · Period</span>
               <div class="rg-seg" id="seg" role="group" aria-label="Period type"><button type="button" data-p="day">Day</button><button type="button" data-p="week">Week</button><button type="button" data-p="month">Month</button><button type="button" data-p="year">Year</button><button type="button" data-p="custom">Custom</button></div>
               <div id="pInputs" style="margin-top:10px"></div>
               <div class="rg-presets" id="presets"><button type="button" data-preset="today">Today</button><button type="button" data-preset="week">This week</button><button type="button" data-preset="month">This month</button><button type="button" data-preset="year">This year</button></div>
@@ -168,9 +169,10 @@
             <div class="rg__step" id="optStep" hidden><label class="rg-opt"><input type="checkbox" id="optLoc"><span><b>Include location text (confidential)</b><br>Adds the location exactly as the reporter typed it, which can be a home address. Needs your password and is recorded in the audit log.</span></label></div>
           </aside>
 
-          <section id="result" aria-live="polite">
+          <section id="result" aria-label="Report preview">
             <div class="rg-empty"><b>Loading…</b></div>
           </section>
+          <p class="rg-sr" id="rgStatus" role="status" aria-live="polite"></p>
         </div>
       </section>
 
