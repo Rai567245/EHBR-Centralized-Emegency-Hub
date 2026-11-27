@@ -17,6 +17,7 @@ const path = require('path');
 const crypto = require('crypto');
 const T = require('./timeutil');
 const X = require('./exporters');
+const Forecast = require('./forecast');
 
 const MAX_RECORDS = 50000;           // refuse to build a file bigger than this (narrow the filters instead)
 const PDF_ROWS = 1500;               // the PDF lists at most this many rows; XLSX/CSV carry everything
@@ -43,6 +44,7 @@ const CATEGORIES = {
   'resolution': { label: 'Resolution Report', desc: 'Resolved, open and rejected reports, outcomes, and time to resolution where recorded.', filters: ['types', 'urgencies', 'statuses', 'sources', 'zones', 'team'], list: true, detail: true },
   'blockages': { label: 'Road Blockages Report', desc: 'Road blockage records in the period by reason, status and date.', filters: ['reasons', 'blockStatus'], list: true, detail: false },
   'resident-activity': { label: 'Resident Activity Summary', desc: 'Privacy-safe summary of reports submitted by residents. No names, contact details or addresses.', filters: ['types', 'urgencies', 'zones'], list: false, detail: false },
+  'incident-forecast': { label: 'Incident Forecast', desc: 'Projected number of reports for the next 7, 14 and 30 days, based on the report history. A planning estimate, not a guarantee.', filters: ['types', 'urgencies', 'zones'], list: false, detail: false, forecast: true },
   'announcements': { label: 'Announcements Report', desc: 'Announcements published in the period, by category and date.', filters: ['annCategories'], list: true, detail: false },
 };
 
@@ -443,19 +445,62 @@ function register(ctx) {
     };
   }
 
-  const BUILDERS = { 'incident-summary': buildIncidentSummary, 'emergency-stats': buildEmergencyStats, response: buildResponse, resolution: buildResolution, blockages: buildBlockages, 'resident-activity': buildResidentActivity, announcements: buildAnnouncements };
+  // ---- forecast: looks ahead from today, so the period picker does not apply
+  const HORIZONS = [7, 14, 30];
+  const wallClock = (t) => { const p = T.localParts(t, TZ); return Date.UTC(p.y, p.m - 1, p.d, p.h); };   // local time written as UTC, so the maths never depends on the server's own zone
+  const fcShort = (ts) => { const d = new Date(ts); return `${T.DOW[d.getUTCDay()]} ${d.getUTCDate()}`; };   // short axis label for charts
+  const fcDay = (ts) => { const d = new Date(ts); return `${T.DOW[d.getUTCDay()]}, ${T.MON[d.getUTCMonth()]} ${d.getUTCDate()}`; };
+  function buildForecast(c) {
+    const { db, cfg, opts, generatedAt } = c, now = Date.parse(generatedAt);
+    const recs = selectReports(db, cfg, 0, now + 1, opts).recs;
+    const pool = recs.map((f) => ({ reportedAt: wallClock(f.rep), status: f.status, type: f.type }));
+    const run = (h) => Forecast.run(pool, { now: wallClock(now), horizon: h, utc: true });
+    const res = HORIZONS.map(run), main = res[1], used = pool.filter((r) => r.status !== 'REJECTED').length;
+    const notes = ['A forecast is an estimate from past reports only. It cannot see weather, typhoons, events or other causes of a sudden rise, so use it for planning, not as a promise.', 'Rejected reports are left out. Days are counted in ' + TZ + ' time.'];
+    common(c, notes);
+    if (!main.ok) {
+      notes.unshift(main.reason === 'short' ? `Not enough history yet: the forecast needs at least 7 completed days of reports and there are only ${main.historyDays}. No forecast was made.` : 'There are no reports to forecast from (check the filters). No forecast was made.');
+      return { matching: 0, summary: [], notes, definitions: [], sections: [], list: null, forecast: true };
+    }
+    notes.push(...Forecast.describe(main).filter((l) => /^(Back-test|Confidence is low)/.test(l)));
+    const sum = (r) => `${Math.round(r.total.pred)}`, rng = (r) => `Likely range ${r.total.lo} to ${r.total.hi}`;
+    const OUT = { higher: 'Higher than usual', lower: 'Lower than usual', usual: 'About usual', unknown: 'Not enough history' };
+    const day = (d) => ({ k: fcDay(d.ts), s: fcShort(d.ts), n: d.pred, lo: d.lo, hi: d.hi });
+    const hist = main.history.map((h) => ({ k: fcDay(h.ts), s: fcShort(h.ts), n: h.v }));
+    return {
+      matching: used,
+      summary: [
+        { label: 'Next 7 days', value: sum(res[0]), note: rng(res[0]) }, { label: 'Next 14 days', value: sum(main), note: rng(main) }, { label: 'Next 30 days', value: sum(res[2]), note: rng(res[2]) },
+        { label: 'Compared with usual', value: OUT[main.outlook.risk], note: main.outlook.risk === 'unknown' ? '' : `Next 14 days vs. about ${Math.round(main.outlook.usual)} usual` }, { label: 'Confidence', value: main.confidence.level, note: main.confidence.why },
+      ],
+      notes,
+      definitions: [['Expected', 'The most likely number of reports. Rounded for the summary, shown with one decimal in the daily table.'], ['Likely range', 'An 80% range: about 8 times in 10 the real number should land inside it. Real life can still fall outside.'], ['Compared with usual', 'The forecast against the average of the last 28 days over the same number of days. Marked higher or lower only when the gap is clear.'], ['Confidence', 'Low, Medium or High, from how many days and reports the forecast is based on and whether it beat a plain recent average in a back-test.'], ['Records', `The ${num(used)} non-rejected reports (up to the last 90 days are used) that match the filters.`]],
+      sections: [
+        { id: 'daily', title: 'Expected per day (next 14 days)', note: 'Starts today. Today\'s figure is the full-day estimate, not what is left of the day.', columns: [{ key: 'k', label: 'Day', type: 'text' }, { key: 'n', label: 'Expected', type: 'num' }, { key: 'lo', label: 'Low (80%)', type: 'num' }, { key: 'hi', label: 'High (80%)', type: 'num' }], rows: main.forecast.map(day), total: { k: 'Total', n: main.total.pred, lo: main.total.lo, hi: main.total.hi },
+          chart: { type: 'column', labelKey: 's', valueKey: 'n', unit: `Expected reports per day (${TZ})` } },
+        { id: 'history', title: 'Actual per day (last 28 days)', columns: [{ key: 'k', label: 'Day', type: 'text' }, { key: 'n', label: 'Reports', type: 'int' }], rows: hist, total: { k: 'Total', n: hist.reduce((a, r) => a + r.n, 0) },
+          chart: { type: 'column', labelKey: 's', valueKey: 'n', unit: `Reports per day (${TZ})` } },
+        ...(main.mix.length ? [{ id: 'mix', title: 'Expected by type (next 14 days)', note: 'The mix of the last 60 days applied to the 14-day forecast.', columns: [{ key: 'k', label: 'Type', type: 'text' }, { key: 'recent', label: 'Last 60 days', type: 'int' }, { key: 'p', label: 'Share', type: 'pct' }, { key: 'n', label: 'Expected', type: 'num' }], rows: main.mix.map((m) => ({ k: m.type, recent: m.recent, p: m.share * 100, n: m.expected })), total: null, chart: { type: 'bar', labelKey: 'k', valueKey: 'n', unit: 'Expected reports' } }] : []),
+        { id: 'reading', title: 'What this means', columns: [{ key: 'k', label: 'In plain words', type: 'text' }], rows: Forecast.describe(main).map((k) => ({ k })), total: null, chart: null },
+      ],
+      list: null, forecast: true,
+    };
+  }
+
+  const BUILDERS = { 'incident-summary': buildIncidentSummary, 'emergency-stats': buildEmergencyStats, response: buildResponse, resolution: buildResolution, blockages: buildBlockages, 'resident-activity': buildResidentActivity, announcements: buildAnnouncements, 'incident-forecast': buildForecast };
 
   /** Builds the neutral doc from a cleaned config. Runs synchronously over the in-memory records = one consistent snapshot. */
   function buildDoc(cfg, user, { canLocation = false } = {}) {
     const db = ctx.getDb(), opts = optionSets(db), generatedAt = ctx.nowIso(), cat = CATEGORIES[cfg.category];
-    const range = rangeFor(cfg.period, Date.parse(generatedAt));
-    const isReports = ['incident-summary', 'emergency-stats', 'response', 'resolution', 'resident-activity'].includes(cfg.category);
+    const range = rangeFor(cat.forecast ? { type: 'day' } : cfg.period, Date.parse(generatedAt));   // a forecast looks ahead from today: the chosen period is ignored
+    if (cat.forecast) range.label = `Next 7, 14 and 30 days from ${T.fmtDate(Date.parse(generatedAt), TZ)}`;
+    const isReports = !cat.forecast && ['incident-summary', 'emergency-stats', 'response', 'resolution', 'resident-activity'].includes(cfg.category);
     const sel = isReports ? selectReports(db, cfg, range.start, range.end, opts) : { recs: [], noDate: 0 };
     const loc = !!(cfg.includeLocation && canLocation && cat.detail);
     const part = BUILDERS[cfg.category]({ db, cfg, opts, range, recs: sel.recs, noDate: sel.noDate, loc, generatedAt });
     const matching = part.matching !== undefined ? part.matching : sel.recs.length;
     const notes = [...(part.notes || [])];
-    if (range.inProgress) notes.unshift('This period has not ended yet. The figures cover the time up to the moment of generation.');
+    if (range.inProgress && !cat.forecast) notes.unshift('This period has not ended yet. The figures cover the time up to the moment of generation.');
     if (loc) notes.unshift('This export includes the location text typed by reporters, which can contain addresses. Handle it as confidential.');
     const b = db.settings.barangay || {};
     return {
@@ -502,7 +547,7 @@ function register(ctx) {
     const db = ctx.getDb(), o = optionSets(db); delete o._usersById;
     return {
       tz: TZ, tzOffset: T.offsetLabel(Date.now(), TZ), today: T.fmtDate(Date.now(), TZ), retentionDays: RETENTION_DAYS, encrypted: !!fileKey, keyError, barangay: [db.settings.barangay.name, db.settings.barangay.city].filter(Boolean).join(', '),
-      categories: Object.entries(CATEGORIES).map(([id, c]) => ({ id, label: c.label, desc: c.desc, filters: c.filters, detail: c.detail, formats: Object.keys(FORMATS), csv: c.list ? 'Record list' : 'Summary tables' })),
+      categories: Object.entries(CATEGORIES).map(([id, c]) => ({ id, label: c.label, desc: c.desc, filters: c.filters, detail: c.detail, formats: Object.keys(FORMATS), csv: c.list ? 'Record list' : 'Summary tables', noPeriod: !!c.forecast })),
       formats: Object.fromEntries(Object.entries(FORMATS).map(([k, v]) => [k, v.label])), options: o, urgencies: URG_ORDER,
       can: { view: can(user, 'view'), export: can(user, 'export'), download: can(user, 'download'), detail: can(user, 'detail'), delete: can(user, 'delete'), audit: can(user, 'audit') },
     };
@@ -523,7 +568,7 @@ function register(ctx) {
     audit('report requested', { id, user, detail: `${cfg.category}, ${format}, ${JSON.stringify(cfg.period)}${filterSummary(cfg).length ? ', filters: ' + filterSummary(cfg).map(([k, v]) => `${k}=${v}`).join('; ') : ''}${canLocation ? ', with location text' : ''}` });
     const doc = buildDoc(cfg, user, { canLocation });
     const rows = doc.list ? doc.list.rows.length : 0;
-    if (doc.empty) { audit('report not generated', { id, user, status: 'empty', detail: 'no records matched' }); throw new HttpError(409, 'No records match this period and these filters, so no file was created.'); }
+    if (doc.empty) { audit('report not generated', { id, user, status: 'empty', detail: 'no records matched' }); throw new HttpError(409, CATEGORIES[cfg.category].forecast ? 'There is not enough report history to make a forecast, so no file was created.' : 'No records match this period and these filters, so no file was created.'); }
     if (rows > MAX_RECORDS) { audit('report not generated', { id, user, status: 'too-large', detail: `${rows} rows` }); throw new HttpError(413, `That is ${num(rows)} records, more than the ${num(MAX_RECORDS)} a single file can hold. Choose a shorter period or add filters.`); }
     const stamp = T.fmtDateTime(Date.parse(doc.generatedAt), TZ).replace(/[-:]/g, '').replace(' ', '-');
     const filename = `EHBR_${slug(CATEGORIES[cfg.category].label)}_${slug(doc.period.label)}_${stamp}.${FORMATS[format].ext}`;
