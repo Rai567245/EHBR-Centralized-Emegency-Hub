@@ -3,13 +3,15 @@ import 'package:flutter/services.dart';
 
 import '../theme.dart';
 
-// Red highlight behind the active tab (same red as the SOS button).
-const Color _navActive = EhbrColors.sos;
+// Active tab: brand red icon and label on a pale red pill (same red tint as
+// the selected filter chips on the Map screen).
+const Color _navActive = EhbrColors.brand;
+const Color _navActiveTint = Color(0x1FC41E3A); // brand at 12%
 
 /// Floating white bottom navigation.
 ///
-/// The active tab looks the same on every tab (filled icon, bold label, lime pill),
-/// and inactive tabs are muted grey.
+/// Every tab looks the same when active (filled icon, bold label, pale red
+/// pill) and muted grey with an outline icon when not.
 ///
 /// While the on-screen keyboard is open the bar hides itself, so it never floats
 /// above the keyboard no matter which screen or Scaffold it is placed in.
@@ -25,16 +27,16 @@ class EhbrBottomNav extends StatefulWidget {
   final ValueChanged<int>? onTap;
 
   /// Kept so existing callers still compile. It is ignored: the active tab
-  /// always uses the lime pill with a black icon.
+  /// always uses the brand red.
   final Color activeColor;
 
   // (outlined icon, filled icon used when selected, label)
   static const _items = <(IconData, IconData, String)>[
     (Icons.home_outlined, Icons.home_rounded, 'Home'),
     (Icons.map_outlined, Icons.map_rounded, 'Map'),
-    (Icons.phone_outlined, Icons.phone_rounded, 'Contacts'),
+    (Icons.support_agent_outlined, Icons.support_agent_rounded, 'Contacts'),
     (Icons.newspaper_outlined, Icons.newspaper_rounded, 'News'),
-    (Icons.account_circle_outlined, Icons.account_circle_rounded, 'Profile'),
+    (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
   ];
 
   @override
@@ -87,13 +89,13 @@ class _EhbrBottomNavState extends State<EhbrBottomNav>
     if (_keyboardOpen) return const SizedBox.shrink();
 
     return Container(
-      height: 62,
+      height: 64,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E4EA)),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE8EAEF)),
         boxShadow: const [
-          BoxShadow(color: Color(0x1A000000), blurRadius: 18, offset: Offset(0, 4)),
+          BoxShadow(color: Color(0x14101828), blurRadius: 16, offset: Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -133,8 +135,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = selected ? Colors.white : EhbrColors.muted;
-    final color = selected ? EhbrColors.ink : EhbrColors.muted;
+    final color = selected ? _navActive : EhbrColors.muted;
 
     return Semantics(
       button: true,
@@ -147,22 +148,40 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Pale pill that widens behind the active icon.
             AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              width: 46,
-              height: 28,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: selected ? 56 : 32,
+              height: 30,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? _navActive : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
+                color: selected ? _navActiveTint : Colors.transparent,
+                borderRadius: BorderRadius.circular(15),
               ),
-              child: Icon(icon, size: 22, color: iconColor),
+              // Outline -> filled swap with a small pop.
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutBack,
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  icon,
+                  key: ValueKey(selected),
+                  size: 24,
+                  color: color,
+                ),
+              ),
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              style: manrope(11, selected ? FontWeight.w700 : FontWeight.w500, color),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
+              style: manrope(
+                10.5,
+                selected ? FontWeight.w800 : FontWeight.w600,
+                color,
+              ),
+              child: Text(label, maxLines: 1),
             ),
           ],
         ),
