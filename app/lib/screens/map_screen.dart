@@ -26,6 +26,25 @@ const Color _mapBorder = Color(0xFFE2E4EA);
 //const Color _mapSurface = Color(0xFFF3F4F8);
 const Color _mapRedTint = Color(0xFFFDEEF0);
 
+// Map pins use the same red / ink / white palette as the admin console map.
+const Color _mapInk = Color(0xFF1F2937);
+
+/// Quieter base map (same look as the admin console): less colour, a touch
+/// less contrast, a touch brighter, so the pins stand out.
+final ColorFilter _softTileFilter = () {
+  const sat = 0.27; // 1 = original colour, 0 = grey
+  const k = 0.93 * 1.045; // contrast x brightness
+  const off = (0.5 - 0.5 * 0.93) * 255 * 1.045;
+  const lr = 0.2126, lg = 0.7152, lb = 0.0722;
+  double d(double w, bool diag) => k * (w * (1 - sat) + (diag ? sat : 0));
+  return ColorFilter.matrix(<double>[
+    d(lr, true), d(lg, false), d(lb, false), 0, off,
+    d(lr, false), d(lg, true), d(lb, false), 0, off,
+    d(lr, false), d(lg, false), d(lb, true), 0, off,
+    0, 0, 0, 1, 0,
+  ]);
+}();
+
 enum _Kind { incident, hazard, evac, blocked }
 
 Color _kindColor(_Kind k) => switch (k) {
@@ -135,6 +154,16 @@ class _Item {
 
   bool get hasPoint => lat != null && lng != null;
 
+  /// Stable id for "which pin is selected".
+  String get uid =>
+      '${kind.name}:${report?.id ?? center?.id ?? blockage?.id ?? ''}';
+
+  /// High / critical reports pulse on the map.
+  bool get urgent {
+    final u = report?.urgency.toLowerCase() ?? '';
+    return u == 'high' || u == 'critical';
+  }
+
   /// Icon for list rows, map markers and the preview sheet.
   /// Reports use their own type; centers and blockages use the kind icon.
   IconData get icon => isReport ? _reportIcon(tag, kind) : _kindIcon(kind);
@@ -158,6 +187,9 @@ class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
 
   _Kind? _filter;
+
+  /// Pin whose details sheet is open (drawn larger, with a halo).
+  String? _selected;
 
   // ----------------------------------------------------------
   // Filter chip row: snap, tap-to-center glide
@@ -331,6 +363,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _showPreview(_Item item) {
+    setState(() => _selected = item.uid);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -355,7 +388,9 @@ class _MapScreenState extends State<MapScreen> {
               : null,
         );
       },
-    );
+    ).whenComplete(() {
+      if (mounted) setState(() => _selected = null);
+    });
   }
 
   @override
@@ -384,6 +419,12 @@ class _MapScreenState extends State<MapScreen> {
         ];
 
         final cfg = Session.config;
+
+        // Selected pin on top, then urgent ones, then the rest.
+        int layer(_Item i) => i.uid == _selected ? 2 : (i.urgent ? 1 : 0);
+        final pinned = shown.where((i) => i.hasPoint).toList()
+          ..sort((a, b) => layer(a).compareTo(layer(b)));
+        int onMap(_Kind k) => pinned.where((i) => i.kind == k).length;
 
         return Column(
           children: [
@@ -438,6 +479,7 @@ class _MapScreenState extends State<MapScreen> {
                             _MapFilterChip(
                               key: _chipKeys[idx],
                               label: c.$1,
+                              kind: c.$2,
                               count: c.$3,
                               selected: _filter == c.$2,
                               onTap: () {
@@ -463,7 +505,7 @@ class _MapScreenState extends State<MapScreen> {
                 width: double.infinity,
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: _mapBorder),
                 ),
                 child: Stack(
@@ -506,10 +548,13 @@ class _MapScreenState extends State<MapScreen> {
                                 : const CameraConstraint.unconstrained(),
                       ),
                       children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'ph.barangay.ehbr',
+                        ColorFiltered(
+                          colorFilter: _softTileFilter,
+                          child: TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'ph.barangay.ehbr',
+                          ),
                         ),
                         if (cfg.hasBorder)
                           PolygonLayer(
@@ -527,16 +572,23 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         MarkerLayer(
                           markers: [
-                            for (final i in shown.where(
-                              (i) => i.hasPoint,
-                            ))
+                            for (final i in pinned)
                               Marker(
                                 point: LatLng(i.lat!, i.lng!),
-                                width: 36,
-                                height: 40,
+                                // 48 x 48 touch target around the 30 px pin.
+                                width: 48,
+                                height: 48,
                                 child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
                                   onTap: () => _showPreview(i),
-                                  child: _Pin(i),
+                                  child: Semantics(
+                                    button: true,
+                                    label: '${i.tag}, ${i.status}',
+                                    child: _Pin(
+                                      i,
+                                      selected: i.uid == _selected,
+                                    ),
+                                  ),
                                 ),
                               ),
                           ],
@@ -544,25 +596,70 @@ class _MapScreenState extends State<MapScreen> {
                       ],
                     ),
 
-                    // OpenStreetMap attribution.
+                    // Soft shade along the bottom edge, like the admin map.
                     Positioned(
-                      left: 6,
-                      bottom: 6,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 46,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0x00101828),
+                                Color(0x24101828),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // OpenStreetMap credit, at the top of the map.
+                    Positioned(
+                      top: 8,
+                      right: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(5),
+                          color: Colors.white.withValues(alpha: 0.78),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '© OpenStreetMap contributors',
-                          style: manrope(8, FontWeight.w500, EhbrColors.ink),
+                          style: manrope(8.5, FontWeight.w500, EhbrColors.ink),
                         ),
                       ),
                     ),
+
+                    // Key: only the kinds that are on the map right now.
+                    if (pinned.isNotEmpty)
+                      Positioned(
+                        left: 8,
+                        right: 56, // keeps clear of the zoom buttons
+                        bottom: 8,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.bottomLeft,
+                          child: _MapLegend(
+                            entries: [
+                              for (final e in const [
+                                (_Kind.incident, 'Incident'),
+                                (_Kind.hazard, 'Hazard'),
+                                (_Kind.evac, 'Center'),
+                                (_Kind.blocked, 'Blocked'),
+                              ])
+                                if (onMap(e.$1) > 0) (e.$1, e.$2, onMap(e.$1)),
+                            ],
+                          ),
+                        ),
+                      ),
 
                     // Zoom controls.
                     Positioned(
@@ -570,9 +667,15 @@ class _MapScreenState extends State<MapScreen> {
                       bottom: 10,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: _mapBorder),
+                          color: Colors.white.withValues(alpha: 0.96),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x29101828),
+                              blurRadius: 14,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: Column(
@@ -586,7 +689,7 @@ class _MapScreenState extends State<MapScreen> {
                             Container(
                               width: 36,
                               height: 1,
-                              color: _mapBorder,
+                              color: const Color(0xFFEEF0F3),
                             ),
                             _MapControlButton(
                               icon: Icons.remove,
@@ -1418,12 +1521,14 @@ class _MapFilterChip extends StatelessWidget {
   const _MapFilterChip({
     super.key,
     required this.label,
+    required this.kind,
     required this.count,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final _Kind? kind; // null for ALL
   final int count;
   final bool selected;
   final VoidCallback onTap;
@@ -1451,15 +1556,24 @@ class _MapFilterChip extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            style: manrope(
-              11,
-              FontWeight.w600,
-              selected ? _mapRed : EhbrColors.ink,
-            ),
-            child: Text(text),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (kind != null) ...[
+                _Key(kind!, size: 10),
+                const SizedBox(width: 7),
+              ],
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                style: manrope(
+                  11,
+                  FontWeight.w600,
+                  selected ? _mapRed : EhbrColors.ink,
+                ),
+                child: Text(text),
+              ),
+            ],
           ),
         ),
       ),
@@ -1489,8 +1603,8 @@ class _MapControlButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
-          width: 36,
-          height: 36,
+          width: 38,
+          height: 38,
           child: Icon(
             icon,
             size: 20,
@@ -1507,36 +1621,277 @@ class _MapControlButton extends StatelessWidget {
 // ------------------------------------------------------------
 
 class _Pin extends StatelessWidget {
-  const _Pin(this.item);
+  const _Pin(this.item, {this.selected = false});
 
   final _Item item;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: _kindColor(item.kind),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white,
-            width: 2,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          if (item.urgent) _PulseRing(square: item.kind == _Kind.hazard),
+          AnimatedScale(
+            scale: selected ? 1.25 : 1,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            child: _PinBody(item.kind, selected: selected),
           ),
-          boxShadow: const [
+        ],
+      ),
+    );
+  }
+}
+
+/// The pin itself. Shape and colour both say what it is, so it still reads
+/// without colour: red dot = incident, dark diamond with ! = hazard,
+/// white shield with red ring = evacuation center, dark bar = blocked road.
+class _PinBody extends StatelessWidget {
+  const _PinBody(this.kind, {this.selected = false});
+
+  final _Kind kind;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final isHazard = kind == _Kind.hazard;
+    final isEvac = kind == _Kind.evac;
+
+    final fill = isEvac
+        ? Colors.white
+        : kind == _Kind.incident
+            ? EhbrColors.brand
+            : _mapInk;
+
+    final box = Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: fill,
+        shape: isHazard ? BoxShape.rectangle : BoxShape.circle,
+        borderRadius: isHazard ? BorderRadius.circular(9) : null,
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: [
+          if (selected)
             BoxShadow(
-              color: Color(0x44000000),
-              blurRadius: 4,
-              offset: Offset(0, 2),
+              color: EhbrColors.brand.withValues(alpha: .28),
+              spreadRadius: 4,
+            ),
+          const BoxShadow(
+            color: Color(0x52101828),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+          if (isEvac)
+            const BoxShadow(color: EhbrColors.brand, spreadRadius: 2),
+        ],
+      ),
+      child: switch (kind) {
+        _Kind.incident => Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+        _Kind.hazard => Transform.rotate(
+            angle: -math.pi / 4,
+            child: Text(
+              '!',
+              style: manrope(13, FontWeight.w800, Colors.white, spacing: 0)
+                  .copyWith(height: 1),
+            ),
+          ),
+        _Kind.evac => const Icon(
+            Icons.shield_outlined,
+            size: 15,
+            color: EhbrColors.brand,
+          ),
+        _Kind.blocked => Container(
+            width: 12,
+            height: 3.5,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+      },
+    );
+
+    return isHazard ? Transform.rotate(angle: math.pi / 4, child: box) : box;
+  }
+}
+
+/// Gentle expanding ring behind urgent pins. Holds still (a faint ring) when
+/// the phone has animations turned off.
+class _PulseRing extends StatefulWidget {
+  const _PulseRing({required this.square});
+
+  final bool square;
+
+  @override
+  State<_PulseRing> createState() => _PulseRingState();
+}
+
+class _PulseRingState extends State<_PulseRing>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1900),
+  );
+  bool _still = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _still = MediaQuery.of(context).disableAnimations;
+    if (_still) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) {
+          final t = _still ? 0.0 : _c.value;
+          final scale = _still ? 1.3 : 1 + .9 * t;
+          final opacity = _still ? .35 : .7 * (1 - t);
+
+          Widget ring = Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: widget.square ? BoxShape.rectangle : BoxShape.circle,
+              borderRadius: widget.square ? BorderRadius.circular(12) : null,
+              border: Border.all(color: EhbrColors.brand, width: 2),
+            ),
+          );
+          if (widget.square) ring = Transform.rotate(angle: math.pi / 4, child: ring);
+
+          return Opacity(
+            opacity: opacity,
+            child: Transform.scale(scale: scale, child: ring),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Small key shape, used in the map legend and on the filter chips.
+class _Key extends StatelessWidget {
+  const _Key(this.kind, {this.size = 12});
+
+  final _Kind kind;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget shape = switch (kind) {
+      _Kind.incident => Container(
+          decoration: const BoxDecoration(
+            color: EhbrColors.brand,
+            shape: BoxShape.circle,
+          ),
+        ),
+      _Kind.hazard => Transform.rotate(
+          angle: math.pi / 4,
+          child: Container(
+            width: size * .8,
+            height: size * .8,
+            decoration: BoxDecoration(
+              color: _mapInk,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      _Kind.evac => Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: EhbrColors.brand, width: size * .21),
+          ),
+        ),
+      _Kind.blocked => Container(
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: _mapInk,
+            shape: BoxShape.circle,
+          ),
+          child: Container(
+            width: size * .5,
+            height: 2,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+        ),
+    };
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Center(child: shape),
+    );
+  }
+}
+
+/// Floating key at the bottom-left of the map, with a count per kind.
+class _MapLegend extends StatelessWidget {
+  const _MapLegend({required this.entries});
+
+  final List<(_Kind, String, int)> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .92),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x24101828),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (idx, e) in entries.indexed) ...[
+            if (idx > 0) const SizedBox(width: 10),
+            _Key(e.$1, size: 11),
+            const SizedBox(width: 5),
+            Text(
+              e.$2,
+              style: manrope(10, FontWeight.w600, const Color(0xFF374151)),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${e.$3}',
+              style: manrope(10, FontWeight.w800, EhbrColors.ink),
             ),
           ],
-        ),
-        child: Icon(
-          item.icon,
-          color: Colors.white,
-          size: 17,
-        ),
+        ],
       ),
     );
   }
